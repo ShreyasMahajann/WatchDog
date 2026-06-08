@@ -1,0 +1,6 @@
+<resources>
+    <!-- The app UI is Compose (MaterialTheme); this XML theme only needs to be a
+         valid no-action-bar host. Using a framework theme avoids pulling in the
+         legacy Material Components XML dependency. -->
+    <style name="Theme.WatchDog" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>

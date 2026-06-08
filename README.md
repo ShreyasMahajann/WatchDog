@@ -24,7 +24,8 @@ See the full plan: `~/.claude/plans/i-want-you-to-shimmying-bird.md`.
 watchDog/
   backend/     TypeScript vulnerability-correlation engine (the brain).
                Pure, dependency-free core; deploys into the Website's API routes.
-  android/     Kotlin + Jetpack Compose app (the hands). [scaffold pending]
+  android/     Kotlin + Jetpack Compose app (the hands).
+  .github/     CI (backend tests + APK build) and release-on-tag pipeline.
 ```
 
 ## backend/
@@ -53,4 +54,32 @@ npm test        # node --test over the golden-set + version-comparator suites
 npm run typecheck
 ```
 
-Runs on Node ≥ 22.6 via native TypeScript type-stripping (no build step).
+Runs on Node ≥ 23.6 via native TypeScript type-stripping (no build step).
+
+## android/
+
+Kotlin + Jetpack Compose app (the "hands" — does all network I/O). Open the
+`android/` folder in Android Studio; on first sync it generates the Gradle
+wrapper jar (not committed). AGP 8.7 / Gradle 8.10.2 / Kotlin 2.0 / JDK 17,
+`minSdk 26`, `compileSdk 35`.
+
+## Releases
+
+CI builds the APK on every push to `main` (`.github/workflows/ci.yml`), so the
+app scaffold is continuously verified. To publish an installable APK, push a
+version tag:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+`.github/workflows/release.yml` then builds the APK, names it
+`watchDog-<version>.apk`, and attaches it to an auto-created GitHub Release with
+generated notes. `versionName` comes from the tag; `versionCode` from the run
+number.
+
+The APK is **debug-signed** — installable by sideloading, which is the intended
+distribution channel for this tool. To ship a properly release-signed build
+later, add a keystore + signing secrets and switch the release job to
+`assembleRelease`.
