@@ -1,0 +1,133 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="860" height="600" viewBox="0 0 860 600" font-family="Segoe UI, Roboto, Arial, sans-serif">
+  <!-- backdrop -->
+  <rect x="0" y="0" width="860" height="600" rx="20" fill="#0b1220"/>
+  <text x="430" y="36" text-anchor="middle" fill="#e5e7eb" font-size="18" font-weight="700">watchDog — the guided assessment workflow</text>
+  <text x="430" y="56" text-anchor="middle" fill="#94a3b8" font-size="12">Automate the repetitive work · keep the human in control of the important decisions</text>
+
+  <!-- ===================== SCREEN 1 : HOST DISCOVERY ===================== -->
+  <g transform="translate(30,80)">
+    <rect x="0" y="0" width="240" height="490" rx="28" fill="#0f172a" stroke="#24324a"/>
+    <rect x="95" y="14" width="50" height="7" rx="3.5" fill="#24324a"/>
+    <text x="20" y="54" fill="#e5e7eb" font-size="15" font-weight="700">Host discovery</text>
+    <text x="20" y="74" fill="#94a3b8" font-size="11">24 devices found · Home-Wi-Fi</text>
+
+    <!-- row 1 -->
+    <rect x="20" y="92" width="16" height="16" rx="4" fill="none" stroke="#3b4c66"/>
+    <text x="46" y="105" fill="#e5e7eb" font-size="12" font-family="Consolas, monospace">192.168.1.1</text>
+    <rect x="152" y="90" width="70" height="20" rx="10" fill="#1e293b"/>
+    <text x="187" y="104" text-anchor="middle" fill="#94a3b8" font-size="10">Router</text>
+    <!-- row 2 -->
+    <rect x="20" y="128" width="16" height="16" rx="4" fill="none" stroke="#3b4c66"/>
+    <text x="46" y="141" fill="#e5e7eb" font-size="12" font-family="Consolas, monospace">192.168.1.12</text>
+    <rect x="152" y="126" width="70" height="20" rx="10" fill="#1e293b"/>
+    <text x="187" y="140" text-anchor="middle" fill="#94a3b8" font-size="10">Unknown</text>
+    <!-- row 3 (selected) -->
+    <rect x="12" y="160" width="216" height="32" rx="8" fill="#0e2a2a"/>
+    <rect x="20" y="164" width="16" height="16" rx="4" fill="#2dd4bf"/>
+    <path d="M23 172 l3 3 l6 -7" fill="none" stroke="#06231f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="46" y="181" fill="#e5e7eb" font-size="12" font-family="Consolas, monospace">192.168.1.20</text>
+    <rect x="152" y="166" width="70" height="20" rx="10" fill="#14352f"/>
+    <text x="187" y="180" text-anchor="middle" fill="#5eead4" font-size="10">Linux</text>
+    <!-- row 4 (selected) -->
+    <rect x="12" y="200" width="216" height="32" rx="8" fill="#0e2a2a"/>
+    <rect x="20" y="204" width="16" height="16" rx="4" fill="#2dd4bf"/>
+    <path d="M23 212 l3 3 l6 -7" fill="none" stroke="#06231f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="46" y="221" fill="#e5e7eb" font-size="12" font-family="Consolas, monospace">192.168.1.42</text>
+    <rect x="152" y="206" width="70" height="20" rx="10" fill="#1e293b"/>
+    <text x="187" y="220" text-anchor="middle" fill="#94a3b8" font-size="10">Windows</text>
+
+    <text x="20" y="256" fill="#94a3b8" font-size="10">Select All  ·  Select specific devices</text>
+
+    <!-- step indicator -->
+    <circle cx="30" cy="290" r="4" fill="#2dd4bf"/>
+    <text x="42" y="294" fill="#94a3b8" font-size="10">1 · Network</text>
+    <circle cx="30" cy="312" r="4" fill="#2dd4bf"/>
+    <text x="42" y="316" fill="#e5e7eb" font-size="10" font-weight="600">2 · Hosts — you decide</text>
+    <circle cx="30" cy="334" r="4" fill="#3b4c66"/>
+    <text x="42" y="338" fill="#94a3b8" font-size="10">3 · Services</text>
+    <circle cx="30" cy="356" r="4" fill="#3b4c66"/>
+    <text x="42" y="360" fill="#94a3b8" font-size="10">4 · Findings</text>
+
+    <rect x="18" y="436" width="204" height="40" rx="10" fill="#2dd4bf"/>
+    <text x="120" y="461" text-anchor="middle" fill="#06231f" font-size="13" font-weight="700">Enumerate 2 selected</text>
+  </g>
+
+  <!-- ===================== SCREEN 2 : SERVICES ===================== -->
+  <g transform="translate(310,80)">
+    <rect x="0" y="0" width="240" height="490" rx="28" fill="#0f172a" stroke="#24324a"/>
+    <rect x="95" y="14" width="50" height="7" rx="3.5" fill="#24324a"/>
+    <text x="20" y="54" fill="#e5e7eb" font-size="15" font-weight="700">Services</text>
+    <text x="20" y="74" fill="#94a3b8" font-size="11" font-family="Consolas, monospace">192.168.1.20 · Linux</text>
+
+    <!-- 22 SSH -->
+    <rect x="12" y="92" width="216" height="34" rx="8" fill="#0e2a2a"/>
+    <text x="24" y="114" fill="#e5e7eb" font-size="13" font-family="Consolas, monospace">22</text>
+    <text x="66" y="114" fill="#e5e7eb" font-size="12" font-weight="600">SSH</text>
+    <text x="150" y="114" fill="#94a3b8" font-size="10" font-family="Consolas, monospace">OpenSSH 8.2p1</text>
+    <!-- 80 HTTP -->
+    <rect x="12" y="132" width="216" height="34" rx="8" fill="#0e2a2a"/>
+    <text x="24" y="154" fill="#e5e7eb" font-size="13" font-family="Consolas, monospace">80</text>
+    <text x="66" y="154" fill="#e5e7eb" font-size="12" font-weight="600">HTTP</text>
+    <text x="150" y="154" fill="#94a3b8" font-size="10" font-family="Consolas, monospace">nginx 1.21</text>
+    <!-- 443 HTTPS -->
+    <rect x="12" y="172" width="216" height="34" rx="8" fill="#0e2a2a"/>
+    <text x="24" y="194" fill="#e5e7eb" font-size="13" font-family="Consolas, monospace">443</text>
+    <text x="66" y="194" fill="#e5e7eb" font-size="12" font-weight="600">HTTPS</text>
+    <text x="150" y="194" fill="#94a3b8" font-size="10" font-family="Consolas, monospace">nginx · TLS 1.3</text>
+    <!-- 3000 (unselected) -->
+    <text x="24" y="234" fill="#94a3b8" font-size="13" font-family="Consolas, monospace">3000</text>
+    <text x="66" y="234" fill="#94a3b8" font-size="12">HTTP</text>
+    <text x="150" y="234" fill="#94a3b8" font-size="10" font-family="Consolas, monospace">Redis 6.x?</text>
+
+    <text x="20" y="270" fill="#94a3b8" font-size="10">Tap a service to include it in fingerprinting.</text>
+
+    <rect x="18" y="300" width="204" height="34" rx="9" fill="#111c2e" stroke="#24324a"/>
+    <text x="120" y="322" text-anchor="middle" fill="#94a3b8" font-size="11">Ports:  Top-100  ·  Top-1000  ·  Full</text>
+
+    <rect x="18" y="436" width="204" height="40" rx="10" fill="#2dd4bf"/>
+    <text x="120" y="461" text-anchor="middle" fill="#06231f" font-size="13" font-weight="700">Fingerprint 3 services</text>
+  </g>
+
+  <!-- ===================== SCREEN 3 : FINDINGS ===================== -->
+  <g transform="translate(590,80)">
+    <rect x="0" y="0" width="240" height="490" rx="28" fill="#0f172a" stroke="#24324a"/>
+    <rect x="95" y="14" width="50" height="7" rx="3.5" fill="#24324a"/>
+    <text x="20" y="54" fill="#e5e7eb" font-size="15" font-weight="700">Findings</text>
+    <text x="20" y="74" fill="#94a3b8" font-size="11">Prioritised · most important first</text>
+
+    <!-- CRITICAL card -->
+    <rect x="16" y="88" width="208" height="192" rx="12" fill="#161d2b" stroke="#3a2530"/>
+    <rect x="16" y="88" width="5" height="192" rx="2.5" fill="#ef4444"/>
+    <rect x="32" y="100" width="70" height="20" rx="10" fill="#3a1f24"/>
+    <text x="67" y="114" text-anchor="middle" fill="#fca5a5" font-size="10" font-weight="700">CRITICAL</text>
+    <text x="180" y="114" text-anchor="end" fill="#94a3b8" font-size="10" font-family="Consolas, monospace">KEV: YES</text>
+
+    <text x="32" y="142" fill="#e5e7eb" font-size="13" font-family="Consolas, monospace">192.168.1.42</text>
+    <text x="32" y="162" fill="#e5e7eb" font-size="13" font-weight="600">Apache HTTP Server</text>
+    <text x="32" y="184" fill="#fbbf24" font-size="12" font-family="Consolas, monospace">CVE-2021-41773</text>
+    <text x="32" y="204" fill="#94a3b8" font-size="11">Confidence 94%  ·  VERIFIED</text>
+    <text x="32" y="222" fill="#94a3b8" font-size="10">Affected version + vuln config + exploited</text>
+
+    <!-- action pills -->
+    <rect x="28" y="238" width="78" height="26" rx="13" fill="#2dd4bf"/>
+    <text x="67" y="255" text-anchor="middle" fill="#06231f" font-size="11" font-weight="700">Investigate</text>
+    <rect x="112" y="238" width="52" height="26" rx="13" fill="#111c2e" stroke="#24324a"/>
+    <text x="138" y="255" text-anchor="middle" fill="#e5e7eb" font-size="11">Verify</text>
+    <rect x="170" y="238" width="46" height="26" rx="13" fill="#111c2e" stroke="#24324a"/>
+    <text x="193" y="255" text-anchor="middle" fill="#94a3b8" font-size="11">Ignore</text>
+
+    <!-- HIGH row -->
+    <rect x="16" y="292" width="208" height="54" rx="12" fill="#161d2b" stroke="#2a3350"/>
+    <rect x="16" y="292" width="5" height="54" rx="2.5" fill="#fbbf24"/>
+    <rect x="32" y="302" width="46" height="18" rx="9" fill="#332b12"/>
+    <text x="55" y="315" text-anchor="middle" fill="#fcd34d" font-size="9" font-weight="700">HIGH</text>
+    <text x="32" y="337" fill="#e5e7eb" font-size="11">192.168.1.20 · OpenSSH 8.2p1</text>
+    <text x="208" y="337" text-anchor="end" fill="#94a3b8" font-size="10">LIKELY</text>
+
+    <!-- suppressed note -->
+    <text x="20" y="374" fill="#94a3b8" font-size="10">1 suppressed — patched by distro backport</text>
+
+    <rect x="18" y="436" width="204" height="40" rx="10" fill="#111c2e" stroke="#24324a"/>
+    <text x="120" y="461" text-anchor="middle" fill="#e5e7eb" font-size="13" font-weight="600">Export report</text>
+  </g>
+</svg>

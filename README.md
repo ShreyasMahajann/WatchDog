@@ -8,6 +8,13 @@ decide → safe verification.
 **Core principle:** automate the repetitive work, keep the human in control of
 important decisions.
 
+## Preview
+
+![watchDog guided workflow: host discovery, service enumeration, and prioritised findings](docs/preview.svg)
+
+*Design mockup of the guided workflow. The app is in active development — the
+current build is an app skeleton.*
+
 ## Architecture in one line
 
 The **phone does 100% of network I/O** (discovery, enumeration, fingerprinting,

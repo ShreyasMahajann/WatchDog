@@ -1,9 +1,9 @@
 name: Release APK
 
-# Cut a release by pushing a version tag:
-#   git tag v0.1.0 && git push origin v0.1.0
-# The tag build produces an APK and attaches it to an auto-created GitHub Release.
-# workflow_dispatch runs the same build but only uploads a run artifact (no release).
+# Two ways to publish a release, both create a GitHub Release with the APK:
+#   1. Push a version tag:   git tag v0.1.0 && git push origin v0.1.0
+#   2. Actions tab -> "Release APK" -> "Run workflow" -> enter a version (e.g. 0.1.0)
+# The manual run creates the tag for you at the current commit.
 
 on:
   push:
@@ -11,10 +11,10 @@ on:
       - "v*"
   workflow_dispatch:
     inputs:
-      label:
-        description: "Version label for a manual build (no release is published)"
-        required: false
-        default: "dev"
+      version:
+        description: "Version to release, e.g. 0.1.0 (a v-prefixed tag is created)"
+        required: true
+        default: "0.1.0"
 
 permissions:
   contents: write
@@ -30,10 +30,13 @@ jobs:
         shell: bash
         run: |
           if [ "$GITHUB_REF_TYPE" = "tag" ]; then
-            NAME="${GITHUB_REF_NAME#v}"
+            TAG="$GITHUB_REF_NAME"
+            NAME="${TAG#v}"
           else
-            NAME="${{ github.event.inputs.label }}"
+            NAME="${{ github.event.inputs.version }}"
+            TAG="v${NAME}"
           fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "name=$NAME" >> "$GITHUB_OUTPUT"
           echo "code=$GITHUB_RUN_NUMBER" >> "$GITHUB_OUTPUT"
 
@@ -69,15 +72,10 @@ jobs:
             "dist/watchDog-${{ steps.ver.outputs.name }}.apk"
 
       - name: Publish GitHub Release
-        if: github.ref_type == 'tag'
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.ver.outputs.tag }}
+          name: watchDog ${{ steps.ver.outputs.tag }}
           files: dist/watchDog-${{ steps.ver.outputs.name }}.apk
           generate_release_notes: true
-
-      - name: Upload build artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: watchDog-apk-${{ steps.ver.outputs.name }}
-          path: dist/*.apk
-          if-no-files-found: error
+          fail_on_unmatched_files: true
