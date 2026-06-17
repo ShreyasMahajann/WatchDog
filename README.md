@@ -12,8 +12,9 @@ important decisions.
 
 ![watchDog guided workflow: host discovery, service enumeration, and prioritised findings](docs/preview.svg)
 
-*Design mockup of the guided workflow. The app is in active development — the
-current build is an app skeleton.*
+*Design mockup of the guided workflow. The app now performs real scanning end to
+end (non-root): live network context, host discovery, port enumeration,
+fingerprinting, and CVE correlation — see below.*
 
 ## Architecture in one line
 
@@ -70,11 +71,40 @@ Kotlin + Jetpack Compose app (the "hands" — does all network I/O). Open the
 wrapper jar (not committed). AGP 8.7 / Gradle 8.10.2 / Kotlin 2.0 / JDK 17,
 `minSdk 26`, `compileSdk 35`.
 
+**What the app does (non-root MVP):**
+
+1. **Networks** — shows the currently-joined Wi-Fi as *scannable* (real
+   SSID + subnet from `ConnectivityManager`) and other nearby APs as
+   *unscannable unless you join them* (Android gives no L3 route to a network
+   you haven't joined).
+2. **Scope** — *scan the whole network* or *pick a specific host*, with a
+   Top-100 / Top-1000 / All-ports depth chooser.
+3. **Discovery** — merges TCP-connect probing, best-effort ICMP, and mDNS
+   (`NsdManager`) into a live host list.
+4. **Enumeration + fingerprinting** — bounded-concurrency connect scan, then
+   banner / HTTP (OkHttp) / TLS-cert probes → normalized `{product, version,
+   distro}`.
+5. **Background execution** — a `connectedDevice` foreground service runs the
+   deep scan with a live progress notification and a "scan complete" notification.
+6. **CVE correlation** — on-device via OSV.dev + CISA KEV + EPSS (default), run
+   through a Kotlin port of the backend engine so states/scores match the
+   contract; or POST to your own backend (Settings → own-server URL).
+
+Correlation logic (`correlate/engine/`) is a semantics-preserving port of the
+backend's `version.ts` / `match.ts` / `correlate.ts`, validated in
+`app/src/test/` against the same golden set. Run the JVM unit tests with
+`gradle testDebugUnitTest`.
+
+**Honest limits (by design):** you can only scan the network you're joined to;
+bare upstream products (no distro tag) get lower-confidence OSV matches until
+own-server mode points at an NVD-CPE index; SYN/ARP/MAC/OS-detection remain a
+future root tier.
+
 ## Releases
 
-CI builds the APK on every push to `main` (`.github/workflows/ci.yml`), so the
-app scaffold is continuously verified. To publish an installable APK, push a
-version tag:
+CI runs the backend tests, the Android JVM unit tests, and builds the APK on
+every push to `main` (`.github/workflows/ci.yml`). To publish an installable
+APK, push a version tag:
 
 ```bash
 git tag v0.1.0
