@@ -29,7 +29,7 @@ data class CvssScore(
 
 /**
  * A single affected-version constraint for a product. Mirrors NVD CPE match
- * (versionStart*/versionEnd*) and CNA affected[] ranges.
+ * (versionStartIncluding / versionEndExcluding) and CNA affected[] ranges.
  */
 @Serializable
 data class VersionRange(
