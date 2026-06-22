@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -42,13 +43,17 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
     private val _nearby = MutableStateFlow<List<WifiScanner.NearbyAp>>(emptyList())
     val nearby: StateFlow<List<WifiScanner.NearbyAp>> = _nearby.asStateFlow()
 
+    private val _wifiStatus = MutableStateFlow(WifiScanner.Status.EMPTY)
+    val wifiStatus: StateFlow<WifiScanner.Status> = _wifiStatus.asStateFlow()
+
     val settings: StateFlow<Settings> =
         settingsRepo.settings.stateIn(viewModelScope, SharingStarted.Eagerly, Settings())
 
-    var selectedDepth: ScanDepth = ScanDepth.TOP_1000
-        private set
-    var allowLargeSubnet: Boolean = false
-        private set
+    private val _selectedDepth = MutableStateFlow(ScanDepth.TOP_1000)
+    val selectedDepth: StateFlow<ScanDepth> = _selectedDepth.asStateFlow()
+
+    private val _allowLargeSubnet = MutableStateFlow(false)
+    val allowLargeSubnet: StateFlow<Boolean> = _allowLargeSubnet.asStateFlow()
 
     init {
         refreshNetwork()
@@ -60,35 +65,36 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
                 }
             }
         }
-        viewModelScope.launch {
-            settingsRepo.settings.collect { selectedDepth = it.defaultDepth }
-        }
+        // Seed the depth from settings once; user changes take over after that.
+        viewModelScope.launch { _selectedDepth.value = settingsRepo.settings.first().defaultDepth }
     }
 
     fun refreshNetwork() {
         viewModelScope.launch {
             _network.value = networkContext.current()
-            _nearby.value = wifiScanner.scan()
+            val result = wifiScanner.scan()
+            _nearby.value = result.aps
+            _wifiStatus.value = result.status
         }
     }
 
-    fun setDepth(depth: ScanDepth) { selectedDepth = depth }
-    fun setAllowLargeSubnet(value: Boolean) { allowLargeSubnet = value }
+    fun setDepth(depth: ScanDepth) { _selectedDepth.value = depth }
+    fun setAllowLargeSubnet(value: Boolean) { _allowLargeSubnet.value = value }
 
     fun goToScope() { _stage.value = Stage.Scope }
 
     fun startWholeNetwork() {
-        ScanForegroundService.startWholeNetwork(getApplication(), selectedDepth, allowLargeSubnet)
+        ScanForegroundService.startWholeNetwork(getApplication(), _selectedDepth.value, _allowLargeSubnet.value)
         _stage.value = Stage.Scanning
     }
 
     fun startSingleHost() {
-        ScanForegroundService.startDiscovery(getApplication(), selectedDepth, allowLargeSubnet)
+        ScanForegroundService.startDiscovery(getApplication(), _selectedDepth.value, _allowLargeSubnet.value)
         _stage.value = Stage.Discovering
     }
 
     fun pickHost(ip: String) {
-        ScanForegroundService.scanHost(getApplication(), ip, selectedDepth)
+        ScanForegroundService.scanHost(getApplication(), ip, _selectedDepth.value)
         _stage.value = Stage.Scanning
     }
 

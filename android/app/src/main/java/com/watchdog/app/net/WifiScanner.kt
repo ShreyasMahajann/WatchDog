@@ -3,6 +3,7 @@ package com.watchdog.app.net
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.location.LocationManager
 import android.net.wifi.WifiManager
 import android.os.Build
 import androidx.core.content.ContextCompat
@@ -10,9 +11,10 @@ import androidx.core.content.ContextCompat
 /**
  * Lists nearby Wi-Fi access points for context only. Honest about the platform:
  * these are just beacons — you can host-scan ONLY the network you are joined to,
- * never a nearby SSID you haven't joined. Results are gated behind
- * NEARBY_WIFI_DEVICES / ACCESS_FINE_LOCATION with location services on, and
- * getScanResults() is throttled, so this returns whatever the last scan cached.
+ * never a nearby SSID you haven't joined. Android gates scan results behind
+ * NEARBY_WIFI_DEVICES / ACCESS_FINE_LOCATION *and* location services being on,
+ * and getScanResults() is throttled — so this reports precisely why the list is
+ * empty rather than silently showing nothing.
  */
 class WifiScanner(private val appContext: Context) {
 
@@ -23,6 +25,15 @@ class WifiScanner(private val appContext: Context) {
         val connected: Boolean,
     )
 
+    enum class Status {
+        OK, // results returned
+        NO_PERMISSION, // nearby-wifi / location permission not granted
+        LOCATION_OFF, // permission ok but location services toggle is off
+        EMPTY, // everything ok, but no cached results yet (try Rescan)
+    }
+
+    data class Result(val status: Status, val aps: List<NearbyAp>)
+
     fun hasPermission(): Boolean {
         val nearby = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(appContext, Manifest.permission.NEARBY_WIFI_DEVICES) ==
@@ -32,14 +43,29 @@ class WifiScanner(private val appContext: Context) {
         return nearby || location
     }
 
+    fun locationEnabled(): Boolean {
+        val lm = appContext.getSystemService(Context.LOCATION_SERVICE) as? LocationManager ?: return false
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            lm.isLocationEnabled
+        } else {
+            @Suppress("DEPRECATION")
+            lm.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
+                lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+        }
+    }
+
     @Suppress("DEPRECATION")
-    fun scan(): List<NearbyAp> {
-        if (!hasPermission()) return emptyList()
+    fun scan(): Result {
+        if (!hasPermission()) return Result(Status.NO_PERMISSION, emptyList())
+        if (!locationEnabled()) return Result(Status.LOCATION_OFF, emptyList())
+
         val wifi = appContext.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
-            ?: return emptyList()
+            ?: return Result(Status.EMPTY, emptyList())
         return try {
+            // Kick a fresh scan (throttled by the OS) then read cached results.
+            runCatching { wifi.startScan() }
             val connectedBssid = wifi.connectionInfo?.bssid
-            wifi.scanResults
+            val aps = wifi.scanResults
                 .filter { it.SSID.isNotBlank() }
                 .distinctBy { it.BSSID }
                 .sortedByDescending { it.level }
@@ -51,10 +77,11 @@ class WifiScanner(private val appContext: Context) {
                         connected = r.BSSID == connectedBssid,
                     )
                 }
+            Result(if (aps.isEmpty()) Status.EMPTY else Status.OK, aps)
         } catch (e: SecurityException) {
-            emptyList()
+            Result(Status.NO_PERMISSION, emptyList())
         } catch (e: Exception) {
-            emptyList()
+            Result(Status.EMPTY, emptyList())
         }
     }
 }
