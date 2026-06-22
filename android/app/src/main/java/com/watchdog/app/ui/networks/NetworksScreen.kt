@@ -1,13 +1,18 @@
 package com.watchdog.app.ui.networks
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -24,20 +29,25 @@ import com.watchdog.app.net.WifiScanner
 import com.watchdog.app.ui.common.InfoBanner
 import com.watchdog.app.ui.common.LabeledCard
 import com.watchdog.app.ui.common.ScreenChrome
+import com.watchdog.app.update.UpdateStatus
 
 @Composable
 fun NetworksScreen(
     network: NetworkInfo?,
     nearby: List<WifiScanner.NearbyAp>,
     wifiStatus: WifiScanner.Status,
+    updateStatus: UpdateStatus,
     onContinue: () -> Unit,
     onRefresh: () -> Unit,
     onGrantPermission: () -> Unit,
     onOpenLocationSettings: () -> Unit,
+    onSwitchNetwork: () -> Unit,
+    onGetUpdate: (String) -> Unit,
     onOpenSettings: () -> Unit,
 ) {
     val cidr = network?.cidr
     val scannable = cidr != null
+    val connectedSsid = network?.ssid
     ScreenChrome(
         title = "watchDog",
         subtitle = "Portable network security assessment",
@@ -49,11 +59,18 @@ fun NetworksScreen(
         onSecondary = onOpenSettings,
     ) {
         Column(Modifier.verticalScroll(rememberScrollState())) {
+            if (updateStatus is UpdateStatus.Available) {
+                UpdateBanner(
+                    version = updateStatus.latestVersion,
+                    onGet = { onGetUpdate(updateStatus.releaseUrl) },
+                )
+                Spacer(Modifier.height(16.dp))
+            }
             if (scannable) {
                 LabeledCard(
-                    label = "Connected — this network is scannable",
+                    label = "Target — currently connected",
                     value = buildString {
-                        append(network?.ssid ?: "Wi-Fi")
+                        append(connectedSsid ?: "Wi-Fi")
                         append(" · ")
                         append("${Cidr.longToIp(cidr!!.networkAddr)}/${cidr.prefixLength}")
                     },
@@ -62,6 +79,17 @@ fun NetworksScreen(
                 Text(
                     "${cidr.hostCount} host addresses · your IP ${network?.localIp ?: "?"}" +
                         (network?.gatewayIp?.let { " · gateway $it" } ?: ""),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else if (connectedSsid != null) {
+                LabeledCard(
+                    label = "Connected — not scannable yet",
+                    value = connectedSsid,
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Connected, but no IPv4 subnet was found — this network can't be scanned. Switch networks or Refresh.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -79,7 +107,7 @@ fun NetworksScreen(
                 fontWeight = FontWeight.SemiBold,
             )
             Spacer(Modifier.height(4.dp))
-            InfoBanner("You can only scan the network you're joined to. Nearby networks are shown for context — connect to one in Android settings to scan it.")
+            InfoBanner("You can only scan the network you're joined to. Tap another network to switch to it — the target above updates once you've joined.")
             Spacer(Modifier.height(8.dp))
 
             when (wifiStatus) {
@@ -98,28 +126,60 @@ fun NetworksScreen(
                     action = "Rescan",
                     onAction = onRefresh,
                 )
+                WifiScanner.Status.UNAVAILABLE -> ActionHint(
+                    text = "Wi-Fi scanning isn't available right now.",
+                    action = "Rescan",
+                    onAction = onRefresh,
+                )
                 WifiScanner.Status.OK -> {
-                    nearby.forEachIndexed { i, ap ->
+                    val others = nearby.filter { !it.connected }
+                    if (others.isEmpty()) {
+                        Text(
+                            "No other networks in range.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    others.forEachIndexed { i, ap ->
                         Row(
-                            modifier = Modifier.fillMaxWidth().height(48.dp),
+                            modifier = Modifier.fillMaxWidth().height(48.dp)
+                                .clickable(onClick = onSwitchNetwork),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(ap.ssid, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodyMedium)
                             Spacer(Modifier.weight(1f))
-                            Text(
-                                if (ap.connected) "connected" else "join to scan",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            Spacer(Modifier.width(8.dp))
                             Text("${ap.signalLevel}/4", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Spacer(Modifier.width(8.dp))
+                            Text("›", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        if (i < nearby.lastIndex) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        if (i < others.lastIndex) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     }
                     Spacer(Modifier.height(8.dp))
                     TextButton(onClick = onRefresh) { Text("Rescan") }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun UpdateBanner(version: String, onGet: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+        ),
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Text("Update available — $version", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "You're not on the latest release. Open the repo to download it.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            Spacer(Modifier.height(12.dp))
+            Button(onClick = onGet) { Text("Get the latest release") }
         }
     }
 }

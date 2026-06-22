@@ -5,8 +5,13 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.net.ConnectivityManager
 import android.net.LinkProperties
+import android.net.Network
 import android.net.wifi.WifiManager
 import androidx.core.content.ContextCompat
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.conflate
+import kotlinx.coroutines.flow.callbackFlow
 import java.net.Inet4Address
 
 /** The network the phone is currently joined to and can actually scan. */
@@ -21,6 +26,13 @@ data class NetworkInfo(
 interface NetworkContext {
     /** The active network, or null if offline / no IPv4. */
     fun current(): NetworkInfo?
+
+    /**
+     * Emits (conflated) whenever the default network changes — joined, dropped,
+     * or its link properties/capabilities shift. Callers re-read [current] on each
+     * emission. The stream is hot for as long as it's collected.
+     */
+    fun changes(): Flow<Unit>
 }
 
 /**
@@ -55,6 +67,22 @@ class AndroidNetworkContext(private val appContext: Context) : NetworkContext {
             isWifi = isWifi,
         )
     }
+
+    override fun changes(): Flow<Unit> = callbackFlow {
+        val cm = appContext.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+            ?: run { close(); return@callbackFlow }
+        val callback = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) { trySend(Unit) }
+            override fun onLost(network: Network) { trySend(Unit) }
+            override fun onLinkPropertiesChanged(network: Network, lp: LinkProperties) { trySend(Unit) }
+            override fun onCapabilitiesChanged(
+                network: Network,
+                caps: android.net.NetworkCapabilities,
+            ) { trySend(Unit) }
+        }
+        cm.registerDefaultNetworkCallback(callback)
+        awaitClose { cm.unregisterNetworkCallback(callback) }
+    }.conflate()
 
     @Suppress("DEPRECATION")
     private fun currentSsid(): String? {

@@ -32,7 +32,13 @@ import com.watchdog.app.ui.theme.Severity as SeverityColors
 
 @Composable
 fun FindingsScreen(state: ScanRunState, onRestart: () -> Unit) {
-    val active = state.findings.filter { !it.suppressed }
+    val active = state.findings
+        .filter { !it.suppressed }
+        .sortedWith(
+            compareByDescending<Finding> { it.priority }
+                .thenByDescending { it.severity.ordinal }
+                .thenByDescending { it.confidence },
+        )
     val subtitle = when {
         state.cancelled -> "Scan cancelled"
         state.failureMessage != null -> "Scan failed"

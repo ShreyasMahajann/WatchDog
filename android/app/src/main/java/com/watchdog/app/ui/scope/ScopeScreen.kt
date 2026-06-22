@@ -42,7 +42,7 @@ fun ScopeScreen(
     val large = cidr != null && cidr.prefixLength < Cidr.SAFE_MIN_PREFIX
     ScreenChrome(
         title = "What do you want to scan?",
-        subtitle = network?.ssid?.let { "$it · ${cidr?.let { c -> "${Cidr.longToIp(c.networkAddr)}/${c.prefixLength}" }}" },
+        subtitle = network?.ssid?.let { "Target: $it · ${cidr?.let { c -> "${Cidr.longToIp(c.networkAddr)}/${c.prefixLength}" }}" },
         onBack = onBack,
         primaryLabel = null,
     ) {

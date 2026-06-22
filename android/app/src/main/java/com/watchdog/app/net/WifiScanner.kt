@@ -30,6 +30,7 @@ class WifiScanner(private val appContext: Context) {
         NO_PERMISSION, // nearby-wifi / location permission not granted
         LOCATION_OFF, // permission ok but location services toggle is off
         EMPTY, // everything ok, but no cached results yet (try Rescan)
+        UNAVAILABLE, // Wi-Fi service missing or a scan error unrelated to the above
     }
 
     data class Result(val status: Status, val aps: List<NearbyAp>)
@@ -60,7 +61,7 @@ class WifiScanner(private val appContext: Context) {
         if (!locationEnabled()) return Result(Status.LOCATION_OFF, emptyList())
 
         val wifi = appContext.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
-            ?: return Result(Status.EMPTY, emptyList())
+            ?: return Result(Status.UNAVAILABLE, emptyList())
         return try {
             // Kick a fresh scan (throttled by the OS) then read cached results.
             runCatching { wifi.startScan() }
@@ -81,7 +82,7 @@ class WifiScanner(private val appContext: Context) {
         } catch (e: SecurityException) {
             Result(Status.NO_PERMISSION, emptyList())
         } catch (e: Exception) {
-            Result(Status.EMPTY, emptyList())
+            Result(Status.UNAVAILABLE, emptyList())
         }
     }
 }

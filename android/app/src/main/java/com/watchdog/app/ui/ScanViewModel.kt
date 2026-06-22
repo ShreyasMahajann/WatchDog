@@ -10,6 +10,8 @@ import com.watchdog.app.scan.ScanDepth
 import com.watchdog.app.service.ScanForegroundService
 import com.watchdog.app.service.ScanRunState
 import com.watchdog.app.service.ScanStateHolder
+import com.watchdog.app.update.UpdateChecker
+import com.watchdog.app.update.UpdateStatus
 import com.watchdog.app.settings.CorrelatorMode
 import com.watchdog.app.settings.Settings
 import com.watchdog.app.settings.SettingsRepository
@@ -29,6 +31,12 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
     private val networkContext = AndroidNetworkContext(app)
     private val wifiScanner = WifiScanner(app)
     private val settingsRepo = SettingsRepository(app)
+
+    val appVersion: String = readAppVersion(app)
+    private val updateChecker = UpdateChecker(appVersion)
+
+    private val _updateStatus = MutableStateFlow<UpdateStatus>(UpdateStatus.Unknown)
+    val updateStatus: StateFlow<UpdateStatus> = _updateStatus.asStateFlow()
 
     val runState: StateFlow<ScanRunState> = ScanStateHolder.state
 
@@ -67,6 +75,16 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
         }
         // Seed the depth from settings once; user changes take over after that.
         viewModelScope.launch { _selectedDepth.value = settingsRepo.settings.first().defaultDepth }
+        // Keep the target/others list live: re-detect whenever the phone's network
+        // changes, but only while the user is on a network-facing stage so a running
+        // scan isn't disturbed.
+        viewModelScope.launch {
+            networkContext.changes().collect {
+                if (_stage.value == Stage.Networks || _stage.value == Stage.Scope) refreshNetwork()
+            }
+        }
+        // One-shot update check against the latest GitHub release.
+        viewModelScope.launch { _updateStatus.value = updateChecker.check() }
     }
 
     fun refreshNetwork() {
@@ -119,3 +137,11 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
     fun saveServer(url: String, token: String) { viewModelScope.launch { settingsRepo.setServer(url, token) } }
     fun saveDefaultDepth(depth: ScanDepth) { viewModelScope.launch { settingsRepo.setDepth(depth) } }
 }
+
+private fun readAppVersion(app: Application): String =
+    try {
+        @Suppress("DEPRECATION")
+        app.packageManager.getPackageInfo(app.packageName, 0).versionName ?: "0.0.0"
+    } catch (e: Exception) {
+        "0.0.0"
+    }
