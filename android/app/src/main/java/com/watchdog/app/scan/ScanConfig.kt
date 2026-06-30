@@ -18,6 +18,9 @@ data class ScanConfig(
     val discoveryProbeTimeoutMs: Int = 300,
     val portConnectTimeoutMs: Int = 600,
     val bannerReadTimeoutMs: Int = 1500,
+    // mDNS/DNS-SD browse window. mDNS never self-terminates, so we listen for a
+    // bounded window then stop — otherwise discovery would never finish.
+    val mdnsListenMs: Long = 6000,
     // Refuse to enumerate a subnet wider than this without explicit opt-in.
     val allowLargeSubnet: Boolean = false,
 )

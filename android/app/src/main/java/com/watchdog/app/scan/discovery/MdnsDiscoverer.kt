@@ -7,8 +7,10 @@ import android.net.wifi.WifiManager
 import com.watchdog.app.net.Cidr
 import com.watchdog.app.scan.ScanConfig
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.launch
 
 /**
  * Passive mDNS/DNS-SD discovery via NsdManager — the most productive non-root
@@ -80,7 +82,16 @@ class MdnsDiscoverer(private val appContext: Context) : HostDiscoverer {
             }
         }
 
+        // mDNS browsing never ends on its own; close after a bounded listen window
+        // so the merged discovery flow can complete. (Cancelled early if the whole
+        // scan is cancelled, via awaitClose below.)
+        val timer = launch {
+            delay(config.mdnsListenMs)
+            close()
+        }
+
         awaitClose {
+            timer.cancel()
             for (l in listeners) runCatching { nsd.stopServiceDiscovery(l) }
             runCatching { lock?.release() }
         }
