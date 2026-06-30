@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -75,6 +76,18 @@ fun LabeledCard(label: String, value: String, modifier: Modifier = Modifier) {
         Spacer(Modifier.height(4.dp))
         Text(value, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodyLarge)
     }
+}
+
+/** Shared "are you sure?" dialog for cancelling an in-progress scan/discovery. */
+@Composable
+fun CancelConfirmDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Cancel scan?") },
+        text = { Text("This stops the current scan. Anything found so far is kept, but it won't continue.") },
+        confirmButton = { TextButton(onClick = onConfirm) { Text("Cancel scan") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Keep scanning") } },
+    )
 }
 
 @Composable

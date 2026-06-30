@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -13,10 +14,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -31,12 +34,14 @@ import com.watchdog.app.ui.common.LabeledCard
 import com.watchdog.app.ui.common.ScreenChrome
 import com.watchdog.app.update.UpdateStatus
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NetworksScreen(
     network: NetworkInfo?,
     nearby: List<WifiScanner.NearbyAp>,
     wifiStatus: WifiScanner.Status,
     updateStatus: UpdateStatus,
+    isRefreshing: Boolean,
     onContinue: () -> Unit,
     onRefresh: () -> Unit,
     onGrantPermission: () -> Unit,
@@ -58,7 +63,12 @@ fun NetworksScreen(
         secondaryLabel = "Settings",
         onSecondary = onOpenSettings,
     ) {
-        Column(Modifier.verticalScroll(rememberScrollState())) {
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = onRefresh,
+            modifier = Modifier.fillMaxSize(),
+        ) {
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             if (updateStatus is UpdateStatus.Available) {
                 UpdateBanner(
                     version = updateStatus.latestVersion,
@@ -158,6 +168,7 @@ fun NetworksScreen(
                     TextButton(onClick = onRefresh) { Text("Rescan") }
                 }
             }
+        }
         }
     }
 }

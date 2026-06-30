@@ -21,8 +21,10 @@ import com.watchdog.app.settings.SettingsRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * Owns the scan job and folds ScanEvents into both the live ScanStateHolder and
@@ -81,7 +83,23 @@ class ScanController(
     }
 
     fun cancel() {
-        job?.cancel()
+        val active = job?.isActive == true
+        if (active) {
+            // Cancelling triggers the CancellationException path, which marks the
+            // run cancelled (see markCancelled).
+            job?.cancel()
+        } else {
+            // No active job (e.g. sitting on the host-pick screen). Mark cancelled
+            // directly so the UI can leave and the service can stop.
+            scope.launch {
+                val id = ScanStateHolder.current().scanId
+                if (id != null) {
+                    markCancelled(id)
+                } else {
+                    ScanStateHolder.update { it.copy(cancelled = true, running = false, finished = true) }
+                }
+            }
+        }
     }
 
     // --- internals -------------------------------------------------------------
@@ -187,8 +205,12 @@ class ScanController(
     }
 
     private suspend fun markCancelled(scanId: Long) {
-        repo.finishScan(scanId, "CANCELLED")
+        // Update the live state FIRST: it's non-suspending, so it always runs even
+        // though we're inside a cancelled coroutine. The DB write is suspending and
+        // would otherwise throw CancellationException before the UI ever hears about
+        // the cancel — run it under NonCancellable so it completes too.
         ScanStateHolder.update { it.copy(cancelled = true, running = false, finished = true) }
+        withContext(NonCancellable) { repo.finishScan(scanId, "CANCELLED") }
     }
 
     private suspend fun markFailed(scanId: Long, message: String) {

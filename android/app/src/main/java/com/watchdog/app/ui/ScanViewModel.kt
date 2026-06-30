@@ -26,6 +26,9 @@ import kotlinx.coroutines.launch
 /** The guided-flow stages, driven by user actions + live scan state. */
 enum class Stage { Networks, Scope, Discovering, PickHost, Scanning, Findings, Settings }
 
+/** Stages an active run can terminate from (finish, cancel, or fail) → Findings. */
+private val FINISHABLE_STAGES = setOf(Stage.Scanning, Stage.Discovering, Stage.PickHost)
+
 class ScanViewModel(app: Application) : AndroidViewModel(app) {
 
     private val networkContext = AndroidNetworkContext(app)
@@ -54,6 +57,9 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
     private val _wifiStatus = MutableStateFlow(WifiScanner.Status.EMPTY)
     val wifiStatus: StateFlow<WifiScanner.Status> = _wifiStatus.asStateFlow()
 
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
     val settings: StateFlow<Settings> =
         settingsRepo.settings.stateIn(viewModelScope, SharingStarted.Eagerly, Settings())
 
@@ -69,7 +75,7 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
             ScanStateHolder.state.collect { s ->
                 when {
                     s.awaitingHostPick && _stage.value == Stage.Discovering -> _stage.value = Stage.PickHost
-                    s.finished && _stage.value == Stage.Scanning -> _stage.value = Stage.Findings
+                    s.finished && _stage.value in FINISHABLE_STAGES -> _stage.value = Stage.Findings
                 }
             }
         }
@@ -83,16 +89,30 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
                 if (_stage.value == Stage.Networks || _stage.value == Stage.Scope) refreshNetwork()
             }
         }
+        // Live nearby-AP list: updates whenever the OS completes a Wi-Fi scan, so
+        // networks that aren't in the cache yet show up once discovered.
+        viewModelScope.launch {
+            wifiScanner.observe().collect { result ->
+                _nearby.value = result.aps
+                _wifiStatus.value = result.status
+            }
+        }
         // One-shot update check against the latest GitHub release.
         viewModelScope.launch { _updateStatus.value = updateChecker.check() }
     }
 
     fun refreshNetwork() {
         viewModelScope.launch {
-            _network.value = networkContext.current()
-            val result = wifiScanner.scan()
-            _nearby.value = result.aps
-            _wifiStatus.value = result.status
+            _isRefreshing.value = true
+            try {
+                _network.value = networkContext.current()
+                wifiScanner.rescan()
+                val result = wifiScanner.scan()
+                _nearby.value = result.aps
+                _wifiStatus.value = result.status
+            } finally {
+                _isRefreshing.value = false
+            }
         }
     }
 

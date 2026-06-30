@@ -1,12 +1,18 @@
 package com.watchdog.app.net
 
 import android.Manifest
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.location.LocationManager
 import android.net.wifi.WifiManager
 import android.os.Build
 import androidx.core.content.ContextCompat
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
 
 /**
  * Lists nearby Wi-Fi access points for context only. Honest about the platform:
@@ -84,5 +90,35 @@ class WifiScanner(private val appContext: Context) {
         } catch (e: Exception) {
             Result(Status.UNAVAILABLE, emptyList())
         }
+    }
+
+    /** Best-effort kick of a fresh OS scan. The OS may throttle or ignore it. */
+    @Suppress("DEPRECATION")
+    fun rescan() {
+        val wifi = appContext.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
+        runCatching { wifi?.startScan() }
+    }
+
+    /**
+     * Emits the current result immediately, then again each time the OS finishes a
+     * scan (SCAN_RESULTS_AVAILABLE_ACTION). getScanResults() only reflects the last
+     * *completed* scan, so reading it synchronously right after startScan() misses
+     * freshly-found networks — this stream delivers them when they actually arrive.
+     */
+    fun observe(): Flow<Result> = callbackFlow {
+        trySend(scan())
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                trySend(scan())
+            }
+        }
+        ContextCompat.registerReceiver(
+            appContext,
+            receiver,
+            IntentFilter(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION),
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
+        rescan()
+        awaitClose { runCatching { appContext.unregisterReceiver(receiver) } }
     }
 }

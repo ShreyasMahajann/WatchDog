@@ -42,6 +42,7 @@ fun WatchDogApp(vm: ScanViewModel = viewModel()) {
     val selectedDepth by vm.selectedDepth.collectAsStateWithLifecycle()
     val allowLarge by vm.allowLargeSubnet.collectAsStateWithLifecycle()
     val updateStatus by vm.updateStatus.collectAsStateWithLifecycle()
+    val isRefreshing by vm.isRefreshing.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
 
@@ -83,6 +84,7 @@ fun WatchDogApp(vm: ScanViewModel = viewModel()) {
                 nearby = nearby,
                 wifiStatus = wifiStatus,
                 updateStatus = updateStatus,
+                isRefreshing = isRefreshing,
                 onContinue = vm::goToScope,
                 onRefresh = vm::refreshNetwork,
                 onGrantPermission = { permissionLauncher.launch(runtimePermissions()) },
@@ -125,12 +127,14 @@ fun WatchDogApp(vm: ScanViewModel = viewModel()) {
                 discovering = true,
                 onSelect = null,
                 onBack = vm::goToScope,
+                onCancel = vm::cancel,
             )
             Stage.PickHost -> HostsScreen(
                 hosts = runState.discoveredHosts,
                 discovering = false,
                 onSelect = vm::pickHost,
                 onBack = vm::goToScope,
+                onCancel = vm::cancel,
             )
             Stage.Scanning -> ScanningScreen(state = runState, onCancel = vm::cancel)
             Stage.Findings -> FindingsScreen(state = runState, onRestart = vm::startOver)

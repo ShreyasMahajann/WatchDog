@@ -11,17 +11,29 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.watchdog.app.scan.ScanPhase
 import com.watchdog.app.service.ScanRunState
+import com.watchdog.app.ui.common.CancelConfirmDialog
 import com.watchdog.app.ui.common.LabeledCard
 import com.watchdog.app.ui.common.ScreenChrome
 
 @Composable
 fun ScanningScreen(state: ScanRunState, onCancel: () -> Unit) {
+    var confirmCancel by remember { mutableStateOf(false) }
+    if (confirmCancel) {
+        CancelConfirmDialog(
+            onConfirm = { confirmCancel = false; onCancel() },
+            onDismiss = { confirmCancel = false },
+        )
+    }
     val phaseLabel = when (state.phase) {
         ScanPhase.DISCOVERING -> "Discovering hosts"
         ScanPhase.ENUMERATING -> "Scanning ports"
@@ -34,7 +46,7 @@ fun ScanningScreen(state: ScanRunState, onCancel: () -> Unit) {
         subtitle = "Runs in the background — you'll get a notification when it's done.",
         onBack = null,
         primaryLabel = "Cancel scan",
-        onPrimary = onCancel,
+        onPrimary = { confirmCancel = true },
     ) {
         Column(Modifier.verticalScroll(rememberScrollState())) {
             if (state.hostsTotal > 0) {

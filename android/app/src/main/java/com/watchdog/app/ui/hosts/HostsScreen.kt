@@ -15,11 +15,16 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import com.watchdog.app.scan.discovery.DiscoveredHost
+import com.watchdog.app.ui.common.CancelConfirmDialog
 import com.watchdog.app.ui.common.ScreenChrome
 
 @Composable
@@ -28,12 +33,21 @@ fun HostsScreen(
     discovering: Boolean,
     onSelect: ((String) -> Unit)?,
     onBack: () -> Unit,
+    onCancel: (() -> Unit)? = null,
 ) {
+    var confirmCancel by remember { mutableStateOf(false) }
+    if (confirmCancel && onCancel != null) {
+        CancelConfirmDialog(
+            onConfirm = { confirmCancel = false; onCancel?.invoke() },
+            onDismiss = { confirmCancel = false },
+        )
+    }
     ScreenChrome(
         title = if (discovering) "Discovering hosts" else "Pick a host",
         subtitle = if (discovering) "${hosts.size} found so far…" else "${hosts.size} live host${if (hosts.size == 1) "" else "s"} — tap one to deep-scan",
         onBack = onBack,
-        primaryLabel = null,
+        primaryLabel = if (onCancel != null) "Cancel scan" else null,
+        onPrimary = if (onCancel != null) ({ confirmCancel = true }) else null,
     ) {
         Column(Modifier.fillMaxSize()) {
             if (discovering) {

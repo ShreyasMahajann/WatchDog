@@ -41,10 +41,10 @@ class ScanForegroundService : LifecycleService() {
             ACTION_WHOLE -> controller.startWholeNetwork(config)
             ACTION_DISCOVER -> controller.startDiscovery(config)
             ACTION_SCAN_HOST -> intent.getStringExtra(EXTRA_HOST)?.let { controller.scanPickedHost(it, config) }
-            ACTION_CANCEL -> {
-                controller.cancel()
-                stopSelf()
-            }
+            // Don't stopSelf() here: that would tear down the scope before the
+            // cancellation cleanup runs. cancel() marks the run finished, and
+            // watchStateForCompletion() then stops the service cleanly.
+            ACTION_CANCEL -> controller.cancel()
         }
         return START_NOT_STICKY
     }
