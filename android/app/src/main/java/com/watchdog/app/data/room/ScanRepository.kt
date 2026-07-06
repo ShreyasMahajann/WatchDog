@@ -5,10 +5,12 @@ import com.watchdog.app.scan.ScanConfig
 import com.watchdog.app.scan.discovery.DiscoveredHost
 import com.watchdog.app.scan.model.CvssVersion
 import com.watchdog.app.scan.model.ExploitMaturity
+import com.watchdog.app.scan.model.Exposure
 import com.watchdog.app.scan.model.Finding
 import com.watchdog.app.scan.model.FindingState
 import com.watchdog.app.scan.model.MatchBasis
 import com.watchdog.app.scan.model.ProductIdentity
+import com.watchdog.app.scan.model.ServiceEvidence
 import com.watchdog.app.scan.model.ServiceObservation
 import com.watchdog.app.scan.model.Severity
 import kotlinx.coroutines.flow.Flow
@@ -119,6 +121,16 @@ class ScanRepository(
     fun observeServices(scanId: Long): Flow<List<ServiceEntity>> = dao.observeServices(scanId)
     fun observeFindings(scanId: Long): Flow<List<Finding>> =
         dao.observeFindings(scanId).map { list -> list.map { it.toFinding() } }
+    fun observeRecentScans(limit: Int = 25): Flow<List<ScanEntity>> = dao.observeRecentScans(limit)
+
+    /** Rebuild the per-service observations for a scan (used for on-demand correlation). */
+    fun observeObservations(scanId: Long): Flow<List<ServiceObservation>> =
+        dao.observationRows(scanId).map { rows -> rows.map { rowToObservation(it) } }
+
+    fun observeObservations(scanId: Long, host: String): Flow<List<ServiceObservation>> =
+        observeObservations(scanId).map { list -> list.filter { it.host == host } }
+
+    suspend fun deleteScan(id: Long) = dao.deleteScan(id)
 
     // --- mapping ---------------------------------------------------------------
 
@@ -164,4 +176,35 @@ class ScanRepository(
         suppressed = suppressed,
         suppressionReason = suppressionReason,
     )
+
+    companion object {
+        /** Flat Room row → domain observation for on-demand correlation (live or history). */
+        fun rowToObservation(r: ObservationRow) = ServiceObservation(
+            host = r.host,
+            port = r.port,
+            proto = r.proto,
+            serviceName = r.serviceName,
+            product = r.product?.let {
+                ProductIdentity(
+                    vendor = r.vendor,
+                    product = it,
+                    version = r.version,
+                    cpe = r.cpe,
+                    distro = r.distro,
+                    distroRelease = r.distroRelease,
+                    distroPackage = r.distroPackage,
+                    distroPkgVersion = r.distroPkgVersion,
+                )
+            },
+            evidence = ServiceEvidence(
+                banner = r.banner,
+                httpServer = r.httpServer,
+                httpPoweredBy = r.httpPoweredBy,
+                tlsSubject = r.tlsSubject,
+                tlsIssuer = r.tlsIssuer,
+                tlsNotAfter = r.tlsNotAfter,
+            ),
+            exposure = Exposure(reachable = true),
+        )
+    }
 }
