@@ -59,6 +59,8 @@ class ScanRepository(
         )
     }
 
+    suspend fun findHostId(scanId: Long, ip: String): Long? = dao.findHostId(scanId, ip)
+
     suspend fun addHost(scanId: Long, host: DiscoveredHost): Long =
         dao.insertHost(
             HostEntity(

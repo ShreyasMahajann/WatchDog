@@ -10,6 +10,7 @@ import com.watchdog.app.scan.ScanEngine
 import com.watchdog.app.scan.ScanEvent
 import com.watchdog.app.scan.ScanPhase
 import com.watchdog.app.scan.ScanScope
+import com.watchdog.app.scan.discovery.DiscoveredHost
 import com.watchdog.app.scan.discovery.MdnsDiscoverer
 import com.watchdog.app.scan.discovery.ReachabilityDiscoverer
 import com.watchdog.app.scan.discovery.TcpProbeDiscoverer
@@ -156,6 +157,18 @@ class ScanController(
         ScanStateHolder.update { it.copy(finished = true, running = false) }
     }
 
+    /**
+     * Resolve the Room host row id for [ip] under [scanId]. Uses the in-memory map
+     * from discovery when present, otherwise looks it up (or creates it) — so a
+     * deep re-scan, which runs in a fresh service without the discovery map, still
+     * persists its services.
+     */
+    private suspend fun ensureHostId(scanId: Long, ip: String): Long =
+        hostIds[ip] ?: (
+            repo.findHostId(scanId, ip)
+                ?: repo.addHost(scanId, DiscoveredHost(ip = ip, source = "scan"))
+            ).also { hostIds[ip] = it }
+
     private suspend fun fold(scanId: Long, ev: ScanEvent) {
         when (ev) {
             is ScanEvent.Phase -> ScanStateHolder.update { it.copy(phase = ev.phase) }
@@ -166,7 +179,8 @@ class ScanController(
                 s.copy(openPortsByHost = s.openPortsByHost + (ev.ip to (existing + ev.port)))
             }
             is ScanEvent.ServiceFound -> {
-                hostIds[ev.observation.host]?.let { repo.addObservation(it, ev.observation) }
+                val hostId = ensureHostId(scanId, ev.observation.host)
+                repo.addObservation(hostId, ev.observation)
                 ScanStateHolder.update { it.copy(services = it.services + ev.observation) }
             }
             is ScanEvent.HostFinished -> ScanStateHolder.update { it.copy(hostsDone = it.hostsDone + 1) }

@@ -30,6 +30,9 @@ interface WatchDogDao {
     @Query("SELECT * FROM hosts WHERE scanId = :scanId ORDER BY id")
     fun observeHosts(scanId: Long): Flow<List<HostEntity>>
 
+    @Query("SELECT id FROM hosts WHERE scanId = :scanId AND ip = :ip LIMIT 1")
+    suspend fun findHostId(scanId: Long, ip: String): Long?
+
     @Insert
     suspend fun insertPort(port: PortEntity): Long
 
