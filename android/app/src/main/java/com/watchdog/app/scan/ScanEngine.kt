@@ -1,13 +1,11 @@
 package com.watchdog.app.scan
 
-import com.watchdog.app.correlate.Correlator
 import com.watchdog.app.net.Cidr
 import com.watchdog.app.scan.discovery.DiscoveredHost
 import com.watchdog.app.scan.discovery.HostDiscoverer
 import com.watchdog.app.scan.enumeration.PortScanner
 import com.watchdog.app.scan.enumeration.PortSets
 import com.watchdog.app.scan.fingerprint.Fingerprinter
-import com.watchdog.app.scan.model.ServiceObservation
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -42,17 +40,14 @@ class ScanEngine(
     }
 
     /**
-     * Enumerate + fingerprint each host in [hosts], then correlate all findings.
-     * [hosts] is the explicit target set: the full discovered list for a
-     * whole-network scan, or a single IP for a single-host deep scan.
+     * Enumerate + fingerprint each host in [hosts]. Correlation is no longer part
+     * of the scan — it runs on demand per device (see CorrelatorFactory). [hosts]
+     * is the explicit target set the caller chose (any subset of discovered IPs).
      */
     fun scan(
         hosts: List<String>,
         config: ScanConfig,
-        correlator: Correlator,
     ): Flow<ScanEvent> = channelFlow {
-        val observations = mutableListOf<ServiceObservation>()
-
         send(ScanEvent.Phase(ScanPhase.ENUMERATING))
         val ports = PortSets.forDepth(config.depth)
 
@@ -66,7 +61,6 @@ class ScanEngine(
                     send(ScanEvent.PortOpen(ip, open.port, open.serviceHint))
                     try {
                         val obs = fingerprinter.fingerprint(ip, open.port, config)
-                        observations.add(obs)
                         send(ScanEvent.ServiceFound(obs))
                     } catch (ce: CancellationException) {
                         throw ce
@@ -80,16 +74,6 @@ class ScanEngine(
                 send(ScanEvent.Failed("portscan $ip", e.message ?: e.toString()))
             }
             send(ScanEvent.HostFinished(ip, openCount))
-        }
-
-        send(ScanEvent.Phase(ScanPhase.CORRELATING))
-        try {
-            val response = correlator.correlate(observations)
-            send(ScanEvent.Correlated(response))
-        } catch (ce: CancellationException) {
-            throw ce
-        } catch (e: Exception) {
-            send(ScanEvent.Failed("correlate", e.message ?: e.toString()))
         }
 
         send(ScanEvent.Phase(ScanPhase.DONE))
