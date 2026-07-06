@@ -3,37 +3,54 @@ package com.watchdog.app.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.watchdog.app.correlate.CorrelationTarget
+import com.watchdog.app.correlate.CorrelatorFactory
+import com.watchdog.app.data.room.HostEntity
+import com.watchdog.app.data.room.ScanEntity
+import com.watchdog.app.data.room.ScanRepository
+import com.watchdog.app.data.room.WatchDogDatabase
 import com.watchdog.app.net.AndroidNetworkContext
 import com.watchdog.app.net.NetworkInfo
 import com.watchdog.app.net.WifiScanner
 import com.watchdog.app.scan.ScanDepth
+import com.watchdog.app.scan.model.Finding
+import com.watchdog.app.scan.model.ServiceObservation
 import com.watchdog.app.service.ScanForegroundService
 import com.watchdog.app.service.ScanRunState
 import com.watchdog.app.service.ScanStateHolder
-import com.watchdog.app.update.UpdateChecker
-import com.watchdog.app.update.UpdateStatus
 import com.watchdog.app.settings.CorrelatorMode
 import com.watchdog.app.settings.Settings
 import com.watchdog.app.settings.SettingsRepository
+import com.watchdog.app.update.UpdateChecker
+import com.watchdog.app.update.UpdateStatus
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-/** The guided-flow stages, driven by user actions + live scan state. */
-enum class Stage { Networks, Scope, Discovering, PickHost, Scanning, Findings, Settings }
+/**
+ * The iterative guided flow: discover devices → select some → choose ports → scan →
+ * device-centric results → on-demand vuln check. Correlation is no longer part of the
+ * scan; it runs per device on request and its findings are additive.
+ */
+enum class Stage { Networks, Discovering, SelectDevices, ChoosePorts, Scanning, Results, DeviceDetail, History, Settings }
 
-/** Stages an active run can terminate from (finish, cancel, or fail) → Findings. */
-private val FINISHABLE_STAGES = setOf(Stage.Scanning, Stage.Discovering, Stage.PickHost)
+/** Stages a live port-scan can terminate from (finish/cancel/fail) → Results. */
+private val FINISHABLE_STAGES = setOf(Stage.Scanning)
 
 class ScanViewModel(app: Application) : AndroidViewModel(app) {
 
     private val networkContext = AndroidNetworkContext(app)
     private val wifiScanner = WifiScanner(app)
     private val settingsRepo = SettingsRepository(app)
+    private val repo = ScanRepository(WatchDogDatabase.get(app).dao())
+    private val correlatorFactory = CorrelatorFactory(app)
 
     val appVersion: String = readAppVersion(app)
     private val updateChecker = UpdateChecker(appVersion)
@@ -69,34 +86,76 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
     private val _allowLargeSubnet = MutableStateFlow(false)
     val allowLargeSubnet: StateFlow<Boolean> = _allowLargeSubnet.asStateFlow()
 
+    // --- iterative-flow state --------------------------------------------------
+
+    private val _selectedDevices = MutableStateFlow<Set<String>>(emptySet())
+    val selectedDevices: StateFlow<Set<String>> = _selectedDevices.asStateFlow()
+
+    private val _currentScanId = MutableStateFlow<Long?>(null)
+    val currentScanId: StateFlow<Long?> = _currentScanId.asStateFlow()
+
+    private val _selectedHost = MutableStateFlow<String?>(null)
+    val selectedHost: StateFlow<String?> = _selectedHost.asStateFlow()
+
+    sealed interface VulnCheckState {
+        data object Idle : VulnCheckState
+        data object Running : VulnCheckState
+        data class Error(val message: String) : VulnCheckState
+    }
+
+    private val _vulnCheckState = MutableStateFlow<VulnCheckState>(VulnCheckState.Idle)
+    val vulnCheckState: StateFlow<VulnCheckState> = _vulnCheckState.asStateFlow()
+
+    private val _correlationTargets = MutableStateFlow(listOf(CorrelationTarget.OSV))
+    val correlationTargets: StateFlow<List<CorrelationTarget>> = _correlationTargets.asStateFlow()
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val resultHosts: StateFlow<List<HostEntity>> = _currentScanId
+        .flatMapLatest { id -> if (id == null) flowOf(emptyList()) else repo.observeHosts(id) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val resultObservations: StateFlow<List<ServiceObservation>> = _currentScanId
+        .flatMapLatest { id -> if (id == null) flowOf(emptyList()) else repo.observeObservations(id) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val resultFindings: StateFlow<List<Finding>> = _currentScanId
+        .flatMapLatest { id -> if (id == null) flowOf(emptyList()) else repo.observeFindings(id) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val recentScans: StateFlow<List<ScanEntity>> =
+        repo.observeRecentScans().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     init {
         refreshNetwork()
         viewModelScope.launch {
             ScanStateHolder.state.collect { s ->
                 when {
-                    s.awaitingHostPick && _stage.value == Stage.Discovering -> _stage.value = Stage.PickHost
-                    s.finished && _stage.value in FINISHABLE_STAGES -> _stage.value = Stage.Findings
+                    s.awaitingHostPick && _stage.value == Stage.Discovering -> _stage.value = Stage.SelectDevices
+                    s.finished && _stage.value in FINISHABLE_STAGES -> {
+                        _currentScanId.value = s.scanId
+                        _stage.value = Stage.Results
+                    }
                 }
             }
         }
         // Seed the depth from settings once; user changes take over after that.
         viewModelScope.launch { _selectedDepth.value = settingsRepo.settings.first().defaultDepth }
-        // Keep the target/others list live: re-detect whenever the phone's network
-        // changes, but only while the user is on a network-facing stage so a running
-        // scan isn't disturbed.
+        // Live network + nearby list on the home screen.
         viewModelScope.launch {
             networkContext.changes().collect {
-                if (_stage.value == Stage.Networks || _stage.value == Stage.Scope) refreshNetwork()
+                if (_stage.value == Stage.Networks) refreshNetwork()
             }
         }
-        // Live nearby-AP list: updates whenever the OS completes a Wi-Fi scan, so
-        // networks that aren't in the cache yet show up once discovered.
         viewModelScope.launch {
             wifiScanner.observe().collect { result ->
                 _nearby.value = result.aps
                 _wifiStatus.value = result.status
             }
         }
+        // Which correlation targets are available (OSV always; own-server if configured).
+        viewModelScope.launch { _correlationTargets.value = correlatorFactory.availableTargets() }
         // One-shot update check against the latest GitHub release.
         viewModelScope.launch { _updateStatus.value = updateChecker.check() }
     }
@@ -119,29 +178,78 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
     fun setDepth(depth: ScanDepth) { _selectedDepth.value = depth }
     fun setAllowLargeSubnet(value: Boolean) { _allowLargeSubnet.value = value }
 
-    fun goToScope() { _stage.value = Stage.Scope }
+    // --- discovery + selection -------------------------------------------------
 
-    fun startWholeNetwork() {
-        ScanForegroundService.startWholeNetwork(getApplication(), _selectedDepth.value, _allowLargeSubnet.value)
-        _stage.value = Stage.Scanning
-    }
-
-    fun startSingleHost() {
+    fun startDiscovery() {
+        _selectedDevices.value = emptySet()
         ScanForegroundService.startDiscovery(getApplication(), _selectedDepth.value, _allowLargeSubnet.value)
         _stage.value = Stage.Discovering
     }
 
-    fun pickHost(ip: String) {
-        ScanForegroundService.scanHost(getApplication(), ip, _selectedDepth.value)
+    fun rediscover() = startDiscovery()
+
+    fun toggleDevice(ip: String) {
+        _selectedDevices.value = _selectedDevices.value.toMutableSet().apply { if (!add(ip)) remove(ip) }
+    }
+
+    fun selectAll() { _selectedDevices.value = runState.value.discoveredHosts.map { it.ip }.toSet() }
+    fun clearSelection() { _selectedDevices.value = emptySet() }
+
+    fun proceedToPorts() { if (_selectedDevices.value.isNotEmpty()) _stage.value = Stage.ChoosePorts }
+    fun backToSelectDevices() { _stage.value = Stage.SelectDevices }
+
+    fun startScanSelected() {
+        ScanForegroundService.scanHosts(getApplication(), _selectedDevices.value.toList(), _selectedDepth.value)
+        _currentScanId.value = ScanStateHolder.current().scanId
         _stage.value = Stage.Scanning
     }
 
-    fun cancel() {
-        ScanForegroundService.cancel(getApplication())
+    // --- results + on-demand vuln check ---------------------------------------
+
+    fun openDevice(host: String) {
+        _selectedHost.value = host
+        _vulnCheckState.value = VulnCheckState.Idle
+        _stage.value = Stage.DeviceDetail
     }
+
+    fun backToResults() { _selectedHost.value = null; _stage.value = Stage.Results }
+
+    fun checkVulnerabilities(target: CorrelationTarget) {
+        val scanId = _currentScanId.value ?: return
+        val host = _selectedHost.value ?: return
+        viewModelScope.launch {
+            _vulnCheckState.value = VulnCheckState.Running
+            try {
+                val obs = repo.observeObservations(scanId, host).first()
+                val response = correlatorFactory.create(target).correlate(obs)
+                repo.saveFindings(scanId, response.findings + response.suppressed)
+                _vulnCheckState.value = VulnCheckState.Idle
+            } catch (e: Exception) {
+                _vulnCheckState.value = VulnCheckState.Error(e.message ?: "Check failed")
+            }
+        }
+    }
+
+    fun deepRescanDevice() {
+        val host = _selectedHost.value ?: return
+        ScanForegroundService.scanHosts(getApplication(), listOf(host), ScanDepth.TOP_1000)
+        _stage.value = Stage.Scanning
+    }
+
+    // --- history ---------------------------------------------------------------
+
+    fun openHistory() { _stage.value = Stage.History }
+    fun openHistoryScan(scanId: Long) { _currentScanId.value = scanId; _stage.value = Stage.Results }
+    fun deleteScan(scanId: Long) { viewModelScope.launch { repo.deleteScan(scanId) } }
+
+    // --- lifecycle / nav -------------------------------------------------------
+
+    fun cancel() { ScanForegroundService.cancel(getApplication()) }
 
     fun startOver() {
         ScanStateHolder.update { ScanRunState() }
+        _selectedDevices.value = emptySet()
+        _selectedHost.value = null
         _stage.value = Stage.Networks
         refreshNetwork()
     }
