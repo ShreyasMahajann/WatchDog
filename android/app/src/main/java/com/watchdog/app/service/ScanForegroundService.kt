@@ -38,9 +38,8 @@ class ScanForegroundService : LifecycleService() {
         startForegroundNow()
         val config = configFrom(intent)
         when (intent?.action) {
-            ACTION_WHOLE -> controller.startWholeNetwork(config)
             ACTION_DISCOVER -> controller.startDiscovery(config)
-            ACTION_SCAN_HOST -> intent.getStringExtra(EXTRA_HOST)?.let { controller.scanPickedHost(it, config) }
+            ACTION_SCAN_HOSTS -> intent.getStringArrayListExtra(EXTRA_HOSTS)?.let { controller.scanHosts(it, config) }
             // Don't stopSelf() here: that would tear down the scope before the
             // cancellation cleanup runs. cancel() marks the run finished, and
             // watchStateForCompletion() then stops the service cleanly.
@@ -100,11 +99,10 @@ class ScanForegroundService : LifecycleService() {
     }
 
     companion object {
-        const val ACTION_WHOLE = "com.watchdog.app.WHOLE"
         const val ACTION_DISCOVER = "com.watchdog.app.DISCOVER"
-        const val ACTION_SCAN_HOST = "com.watchdog.app.SCAN_HOST"
+        const val ACTION_SCAN_HOSTS = "com.watchdog.app.SCAN_HOSTS"
         const val ACTION_CANCEL = "com.watchdog.app.CANCEL"
-        const val EXTRA_HOST = "host"
+        const val EXTRA_HOSTS = "hosts"
         const val EXTRA_SCOPE = "scope"
         const val EXTRA_DEPTH = "depth"
         const val EXTRA_ALLOW_LARGE = "allow_large"
@@ -117,18 +115,16 @@ class ScanForegroundService : LifecycleService() {
                 putExtra(EXTRA_ALLOW_LARGE, allowLarge)
             }
 
-        fun startWholeNetwork(context: Context, depth: ScanDepth, allowLarge: Boolean) =
-            context.startForegroundService(base(context, ACTION_WHOLE, depth, ScanScope.WHOLE_NETWORK, allowLarge))
-
         fun startDiscovery(context: Context, depth: ScanDepth, allowLarge: Boolean) =
             context.startForegroundService(base(context, ACTION_DISCOVER, depth, ScanScope.SINGLE_HOST, allowLarge))
 
-        fun scanHost(context: Context, host: String, depth: ScanDepth) =
+        fun scanHosts(context: Context, ips: List<String>, depth: ScanDepth) =
             context.startForegroundService(
-                base(context, ACTION_SCAN_HOST, depth, ScanScope.SINGLE_HOST, false).putExtra(EXTRA_HOST, host),
+                base(context, ACTION_SCAN_HOSTS, depth, ScanScope.SINGLE_HOST, false)
+                    .putStringArrayListExtra(EXTRA_HOSTS, ArrayList(ips)),
             )
 
         fun cancel(context: Context) =
-            context.startForegroundService(base(context, ACTION_CANCEL, ScanDepth.TOP_1000, ScanScope.WHOLE_NETWORK, false))
+            context.startForegroundService(base(context, ACTION_CANCEL, ScanDepth.TOP_1000, ScanScope.SINGLE_HOST, false))
     }
 }

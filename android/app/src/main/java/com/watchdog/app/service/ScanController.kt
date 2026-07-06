@@ -1,9 +1,6 @@
 package com.watchdog.app.service
 
 import android.content.Context
-import com.watchdog.app.correlate.Correlator
-import com.watchdog.app.correlate.direct.DirectOsvCorrelator
-import com.watchdog.app.correlate.remote.RemoteCorrelator
 import com.watchdog.app.data.room.ScanRepository
 import com.watchdog.app.data.room.WatchDogDatabase
 import com.watchdog.app.net.AndroidNetworkContext
@@ -16,7 +13,6 @@ import com.watchdog.app.scan.ScanScope
 import com.watchdog.app.scan.discovery.MdnsDiscoverer
 import com.watchdog.app.scan.discovery.ReachabilityDiscoverer
 import com.watchdog.app.scan.discovery.TcpProbeDiscoverer
-import com.watchdog.app.settings.CorrelatorMode
 import com.watchdog.app.settings.SettingsRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -50,27 +46,22 @@ class ScanController(
     private var job: Job? = null
     private val hostIds = mutableMapOf<String, Long>()
 
-    fun startWholeNetwork(config: ScanConfig) = launchRun(ScanScope.WHOLE_NETWORK, config) { scanId, correlator ->
-        val hosts = discover(scanId, config)
-        ScanStateHolder.update { it.copy(hostsTotal = hosts.size) }
-        runScan(scanId, hosts, config, correlator)
-    }
-
-    /** Single-host branch: discover the host list, then stop for the user to pick. */
-    fun startDiscovery(config: ScanConfig) = launchRun(ScanScope.SINGLE_HOST, config) { scanId, _ ->
+    /** Discover the live-host list, then stop for the user to select which to scan. */
+    fun startDiscovery(config: ScanConfig) = launchRun(config) { scanId ->
         discover(scanId, config)
-        ScanStateHolder.update { it.copy(running = false, awaitingHostPick = true) } // await pick
+        ScanStateHolder.update { it.copy(running = false, awaitingHostPick = true) } // await selection
     }
 
-    /** Single-host branch: deep-scan the chosen host in the background. */
-    fun scanPickedHost(ip: String, config: ScanConfig) {
+    /** Port-scan + fingerprint the user-selected host subset under the current scan. */
+    fun scanHosts(ips: List<String>, config: ScanConfig) {
         val scanId = ScanStateHolder.current().scanId ?: return
         job?.cancel()
         job = scope.launch {
             try {
-                val correlator = buildCorrelator()
-                ScanStateHolder.update { it.copy(running = true, awaitingHostPick = false, hostsTotal = 1, hostsDone = 0) }
-                runScan(scanId, listOf(ip), config, correlator)
+                ScanStateHolder.update {
+                    it.copy(running = true, awaitingHostPick = false, hostsTotal = ips.size, hostsDone = 0)
+                }
+                runScan(scanId, ips, config)
             } catch (ce: CancellationException) {
                 markCancelled(scanId)
                 throw ce
@@ -104,7 +95,7 @@ class ScanController(
 
     // --- internals -------------------------------------------------------------
 
-    private fun launchRun(scope0: ScanScope, config: ScanConfig, body: suspend (Long, Correlator) -> Unit) {
+    private fun launchRun(config: ScanConfig, body: suspend (Long) -> Unit) {
         job?.cancel()
         hostIds.clear()
         job = scope.launch {
@@ -125,9 +116,8 @@ class ScanController(
                 }
                 val id = repo.startScan(net, config, config.correlatorModeName())
                 scanId = id
-                ScanStateHolder.reset(id, scope0)
-                val correlator = buildCorrelator()
-                body(id, correlator)
+                ScanStateHolder.reset(id, ScanScope.SINGLE_HOST)
+                body(id)
             } catch (ce: CancellationException) {
                 scanId?.let { markCancelled(it) }
                 throw ce
@@ -160,8 +150,8 @@ class ScanController(
         return ips
     }
 
-    private suspend fun runScan(scanId: Long, hosts: List<String>, config: ScanConfig, correlator: Correlator) {
-        engine.scan(hosts, config, correlator).collect { ev -> fold(scanId, ev) }
+    private suspend fun runScan(scanId: Long, hosts: List<String>, config: ScanConfig) {
+        engine.scan(hosts, config).collect { ev -> fold(scanId, ev) }
         repo.finishScan(scanId, "DONE")
         ScanStateHolder.update { it.copy(finished = true, running = false) }
     }
@@ -180,27 +170,9 @@ class ScanController(
                 ScanStateHolder.update { it.copy(services = it.services + ev.observation) }
             }
             is ScanEvent.HostFinished -> ScanStateHolder.update { it.copy(hostsDone = it.hostsDone + 1) }
-            is ScanEvent.Correlated -> {
-                repo.saveFindings(scanId, ev.response.findings + ev.response.suppressed)
-                ScanStateHolder.update {
-                    it.copy(findings = ev.response.findings, suppressed = ev.response.suppressed)
-                }
-            }
+            is ScanEvent.Correlated -> {} // correlation is on-demand now; the engine no longer emits this
             is ScanEvent.Failed -> ScanStateHolder.update { it.copy(errors = it.errors + "${ev.where}: ${ev.message}") }
             ScanEvent.Done -> {}
-        }
-    }
-
-    private suspend fun buildCorrelator(): Correlator {
-        val s = settingsRepo.settings.first()
-        return when (s.correlatorMode) {
-            CorrelatorMode.OWN_SERVER ->
-                if (s.serverBaseUrl.isNotBlank()) {
-                    RemoteCorrelator(baseUrl = s.serverBaseUrl, token = s.serverToken.ifBlank { null })
-                } else {
-                    DirectOsvCorrelator() // misconfigured -> fall back
-                }
-            CorrelatorMode.DIRECT_OSV -> DirectOsvCorrelator()
         }
     }
 
