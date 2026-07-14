@@ -1,4 +1,4 @@
-package com.watchdog.app.ui.findings
+package com.watchdog.app.ui.common
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -9,81 +9,24 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.watchdog.app.scan.model.Finding
 import com.watchdog.app.scan.model.Severity as SeverityEnum
-import com.watchdog.app.service.ScanRunState
-import com.watchdog.app.ui.common.ScreenChrome
 import com.watchdog.app.ui.theme.Severity as SeverityColors
 
+/** One finding row: severity dot + label, state badge, product·host:port, CVE, meta, first "why". */
 @Composable
-fun FindingsScreen(state: ScanRunState, onRestart: () -> Unit) {
-    val active = state.findings
-        .filter { !it.suppressed }
-        .sortedWith(
-            compareByDescending<Finding> { it.priority }
-                .thenByDescending { it.severity.ordinal }
-                .thenByDescending { it.confidence },
-        )
-    val subtitle = when {
-        state.cancelled -> "Scan cancelled"
-        state.failureMessage != null -> "Scan failed"
-        else -> "${active.size} finding${if (active.size == 1) "" else "s"} · ${state.discoveredHosts.size} host${if (state.discoveredHosts.size == 1) "" else "s"} · ${state.services.size} services"
-    }
-    ScreenChrome(
-        title = "Findings",
-        subtitle = subtitle,
-        onBack = null,
-        primaryLabel = "Start over",
-        onPrimary = onRestart,
-    ) {
-        Column(Modifier.verticalScroll(rememberScrollState())) {
-            state.failureMessage?.let {
-                Text(it, style = MaterialTheme.typography.bodyMedium, color = SeverityColors.Critical)
-                Spacer(Modifier.height(12.dp))
-            }
-
-            if (active.isEmpty() && state.failureMessage == null) {
-                Text(
-                    "No vulnerabilities matched. Either the services are current, or (for non-distro products) the direct OSV lookup couldn't assess the version — try own-server mode in Settings for deeper matching.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
-            active.forEach { f ->
-                FindingRow(f)
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            }
-
-            if (state.suppressed.isNotEmpty()) {
-                Spacer(Modifier.height(16.dp))
-                Text(
-                    "${state.suppressed.size} finding${if (state.suppressed.size == 1) "" else "s"} suppressed — patched by distro backport",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun FindingRow(f: Finding) {
+fun FindingRow(f: Finding) {
     val color = when (f.severity) {
         SeverityEnum.CRITICAL -> SeverityColors.Critical
         SeverityEnum.HIGH -> SeverityColors.High
