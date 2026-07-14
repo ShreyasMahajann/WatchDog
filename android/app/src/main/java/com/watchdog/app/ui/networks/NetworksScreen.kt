@@ -48,6 +48,7 @@ fun NetworksScreen(
     onOpenLocationSettings: () -> Unit,
     onSwitchNetwork: () -> Unit,
     onGetUpdate: (String) -> Unit,
+    onOpenHistory: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
     val cidr = network?.cidr
@@ -69,6 +70,10 @@ fun NetworksScreen(
             modifier = Modifier.fillMaxSize(),
         ) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Spacer(Modifier.weight(1f))
+                TextButton(onClick = onOpenHistory) { Text("History") }
+            }
             if (updateStatus is UpdateStatus.Available) {
                 UpdateBanner(
                     version = updateStatus.latestVersion,

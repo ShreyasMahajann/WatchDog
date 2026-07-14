@@ -22,13 +22,17 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.watchdog.app.share.ScanShare
 import com.watchdog.app.ui.ScanViewModel
 import com.watchdog.app.ui.Stage
-import com.watchdog.app.ui.findings.FindingsScreen
+import com.watchdog.app.ui.history.HistoryScreen
 import com.watchdog.app.ui.hosts.HostsScreen
 import com.watchdog.app.ui.networks.NetworksScreen
+import com.watchdog.app.ui.results.DeviceDetailScreen
+import com.watchdog.app.ui.results.ResultsScreen
 import com.watchdog.app.ui.scan.ScanningScreen
-import com.watchdog.app.ui.scope.ScopeScreen
+import com.watchdog.app.ui.select.ChoosePortsScreen
+import com.watchdog.app.ui.select.SelectDevicesScreen
 import com.watchdog.app.ui.settings.SettingsScreen
 
 @Composable
@@ -40,9 +44,16 @@ fun WatchDogApp(vm: ScanViewModel = viewModel()) {
     val wifiStatus by vm.wifiStatus.collectAsStateWithLifecycle()
     val settings by vm.settings.collectAsStateWithLifecycle()
     val selectedDepth by vm.selectedDepth.collectAsStateWithLifecycle()
-    val allowLarge by vm.allowLargeSubnet.collectAsStateWithLifecycle()
     val updateStatus by vm.updateStatus.collectAsStateWithLifecycle()
     val isRefreshing by vm.isRefreshing.collectAsStateWithLifecycle()
+    val selectedDevices by vm.selectedDevices.collectAsStateWithLifecycle()
+    val resultHosts by vm.resultHosts.collectAsStateWithLifecycle()
+    val resultObservations by vm.resultObservations.collectAsStateWithLifecycle()
+    val resultFindings by vm.resultFindings.collectAsStateWithLifecycle()
+    val selectedHost by vm.selectedHost.collectAsStateWithLifecycle()
+    val vulnState by vm.vulnCheckState.collectAsStateWithLifecycle()
+    val correlationTargets by vm.correlationTargets.collectAsStateWithLifecycle()
+    val recentScans by vm.recentScans.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
 
@@ -69,9 +80,12 @@ fun WatchDogApp(vm: ScanViewModel = viewModel()) {
 
     BackHandler(enabled = stage != Stage.Networks && stage != Stage.Scanning) {
         when (stage) {
-            Stage.Scope -> vm.startOver()
-            Stage.Discovering, Stage.PickHost -> vm.goToScope()
-            Stage.Findings -> vm.startOver()
+            Stage.Discovering -> vm.startOver()
+            Stage.SelectDevices -> vm.startOver()
+            Stage.ChoosePorts -> vm.backToSelectDevices()
+            Stage.Results -> vm.startOver()
+            Stage.DeviceDetail -> vm.backToResults()
+            Stage.History -> vm.startOver()
             Stage.Settings -> vm.closeSettings()
             else -> {}
         }
@@ -85,7 +99,7 @@ fun WatchDogApp(vm: ScanViewModel = viewModel()) {
                 wifiStatus = wifiStatus,
                 updateStatus = updateStatus,
                 isRefreshing = isRefreshing,
-                onContinue = vm::goToScope,
+                onContinue = vm::startDiscovery,
                 onRefresh = vm::refreshNetwork,
                 onGrantPermission = { permissionLauncher.launch(runtimePermissions()) },
                 onOpenLocationSettings = {
@@ -110,34 +124,67 @@ fun WatchDogApp(vm: ScanViewModel = viewModel()) {
                             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
                     )
                 },
+                onOpenHistory = vm::openHistory,
                 onOpenSettings = vm::openSettings,
-            )
-            Stage.Scope -> ScopeScreen(
-                network = network,
-                selectedDepth = selectedDepth,
-                onDepthChange = vm::setDepth,
-                allowLarge = allowLarge,
-                onAllowLargeChange = vm::setAllowLargeSubnet,
-                onWholeNetwork = vm::startWholeNetwork,
-                onSingleHost = vm::startSingleHost,
-                onBack = vm::startOver,
             )
             Stage.Discovering -> HostsScreen(
                 hosts = runState.discoveredHosts,
                 discovering = true,
                 onSelect = null,
-                onBack = vm::goToScope,
+                onBack = vm::startOver,
                 onCancel = vm::cancel,
             )
-            Stage.PickHost -> HostsScreen(
+            Stage.SelectDevices -> SelectDevicesScreen(
                 hosts = runState.discoveredHosts,
-                discovering = false,
-                onSelect = vm::pickHost,
-                onBack = vm::goToScope,
-                onCancel = vm::cancel,
+                selected = selectedDevices,
+                onToggle = vm::toggleDevice,
+                onSelectAll = vm::selectAll,
+                onClear = vm::clearSelection,
+                onRediscover = vm::rediscover,
+                onContinue = vm::proceedToPorts,
+                onBack = vm::startOver,
+            )
+            Stage.ChoosePorts -> ChoosePortsScreen(
+                selectedDepth = selectedDepth,
+                onDepthChange = vm::setDepth,
+                deviceCount = selectedDevices.size,
+                onStart = vm::startScanSelected,
+                onBack = vm::backToSelectDevices,
             )
             Stage.Scanning -> ScanningScreen(state = runState, onCancel = vm::cancel)
-            Stage.Findings -> FindingsScreen(state = runState, onRestart = vm::startOver)
+            Stage.Results -> ResultsScreen(
+                scanNetwork = network?.ssid,
+                hosts = resultHosts,
+                observations = resultObservations,
+                onOpenDevice = vm::openDevice,
+                onShare = { ScanShare.share(context, ScanShare.reportText(resultHosts, resultObservations, resultFindings)) },
+                onDone = vm::startOver,
+            )
+            Stage.DeviceDetail -> {
+                val host = selectedHost
+                if (host != null) {
+                    val deviceObs = resultObservations.filter { it.host == host }
+                    val deviceFindings = resultFindings.filter { it.host == host }
+                    DeviceDetailScreen(
+                        host = host,
+                        observations = deviceObs,
+                        findings = deviceFindings,
+                        vulnState = vulnState,
+                        targets = correlationTargets,
+                        onCheck = vm::checkVulnerabilities,
+                        onDeepRescan = vm::deepRescanDevice,
+                        onShare = { ScanShare.share(context, ScanShare.deviceText(host, deviceObs, deviceFindings)) },
+                        onBack = vm::backToResults,
+                    )
+                }
+            }
+            Stage.History -> HistoryScreen(
+                scans = recentScans,
+                onOpen = vm::openHistoryScan,
+                onDelete = vm::deleteScan,
+                onExport = { id -> vm.exportScan(id, context) },
+                onBack = vm::startOver,
+            )
             Stage.Settings -> SettingsScreen(
                 settings = settings,
                 onSetMode = vm::saveMode,
