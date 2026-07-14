@@ -242,6 +242,18 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
     fun openHistoryScan(scanId: Long) { _currentScanId.value = scanId; _stage.value = Stage.Results }
     fun deleteScan(scanId: Long) { viewModelScope.launch { repo.deleteScan(scanId) } }
 
+    fun exportScan(scanId: Long, context: android.content.Context) {
+        viewModelScope.launch {
+            val hosts = repo.observeHosts(scanId).first()
+            val obs = repo.observeObservations(scanId).first()
+            val findings = repo.observeFindings(scanId).first()
+            com.watchdog.app.share.ScanShare.share(
+                context,
+                com.watchdog.app.share.ScanShare.reportText(hosts, obs, findings),
+            )
+        }
+    }
+
     // --- lifecycle / nav -------------------------------------------------------
 
     fun cancel() { ScanForegroundService.cancel(getApplication()) }
