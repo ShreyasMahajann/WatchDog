@@ -26,11 +26,15 @@ import com.watchdog.app.scan.model.ServiceObservation
 import com.watchdog.app.ui.ScanViewModel
 import com.watchdog.app.ui.common.FindingRow
 import com.watchdog.app.ui.common.InfoBanner
+import com.watchdog.app.ui.common.LabeledCard
 import com.watchdog.app.ui.common.ScreenChrome
 
 @Composable
 fun DeviceDetailScreen(
     host: String,
+    hostname: String?,
+    discoverySource: String?,
+    osGuess: String?,
     observations: List<ServiceObservation>,
     findings: List<Finding>,
     vulnState: ScanViewModel.VulnCheckState,
@@ -40,8 +44,27 @@ fun DeviceDetailScreen(
     onShare: () -> Unit,
     onBack: () -> Unit,
 ) {
-    ScreenChrome(title = host, subtitle = "${observations.size} services", onBack = onBack, primaryLabel = null) {
+    ScreenChrome(title = host, subtitle = hostname ?: "${observations.size} services", onBack = onBack, primaryLabel = null) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+            LabeledCard(
+                label = "Device",
+                value = buildString {
+                    append(hostname ?: host)
+                    osGuess?.let { append(" · ").append(it) }
+                    discoverySource?.let { append(" · found via ").append(it) }
+                },
+            )
+            Spacer(Modifier.height(12.dp))
+
+            if (observations.isEmpty()) {
+                Text(
+                    "No open services found on this device at the scanned depth. It may filter scans, be firewalled, or have nothing listening — try a deeper re-scan.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(12.dp))
+            }
+
             observations.forEach { o ->
                 Text(
                     "${o.port}/${o.proto}  ${o.serviceName ?: ""}  ${o.product?.let { "${it.product} ${it.version ?: ""}" } ?: ""}".trim(),

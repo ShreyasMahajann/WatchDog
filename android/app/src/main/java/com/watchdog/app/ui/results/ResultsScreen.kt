@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import com.watchdog.app.data.room.HostEntity
+import com.watchdog.app.net.Cidr
 import com.watchdog.app.scan.model.ServiceObservation
 import com.watchdog.app.ui.common.LabeledCard
 import com.watchdog.app.ui.common.ScreenChrome
@@ -32,6 +33,7 @@ fun ResultsScreen(
     onDone: () -> Unit,
 ) {
     val byHost = observations.groupBy { it.host }
+    val sortedHosts = hosts.sortedBy { runCatching { Cidr.ipToLong(it.ip) }.getOrDefault(Long.MAX_VALUE) }
     ScreenChrome(
         title = "Results",
         subtitle = scanNetwork,
@@ -48,7 +50,7 @@ fun ResultsScreen(
             )
             Spacer(Modifier.height(12.dp))
             LazyColumn(Modifier.weight(1f).fillMaxWidth()) {
-                items(hosts, key = { it.id }) { h ->
+                items(sortedHosts, key = { it.id }) { h ->
                     val services = byHost[h.ip].orEmpty()
                     Row(
                         Modifier.fillMaxWidth().height(60.dp).clickable { onOpenDevice(h.ip) },

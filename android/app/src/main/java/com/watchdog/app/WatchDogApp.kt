@@ -22,6 +22,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.watchdog.app.net.Cidr
 import com.watchdog.app.share.ScanShare
 import com.watchdog.app.ui.ScanViewModel
 import com.watchdog.app.ui.Stage
@@ -56,6 +57,7 @@ fun WatchDogApp(vm: ScanViewModel = viewModel()) {
     val recentScans by vm.recentScans.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
+    val discoveredHosts = runState.discoveredHosts.sortedBy { runCatching { Cidr.ipToLong(it.ip) }.getOrDefault(Long.MAX_VALUE) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
@@ -128,14 +130,15 @@ fun WatchDogApp(vm: ScanViewModel = viewModel()) {
                 onOpenSettings = vm::openSettings,
             )
             Stage.Discovering -> HostsScreen(
-                hosts = runState.discoveredHosts,
+                hosts = discoveredHosts,
                 discovering = true,
                 onSelect = null,
                 onBack = vm::startOver,
-                onCancel = vm::cancel,
+                onCancel = vm::startOver,
+                onStop = vm::stopDiscovery,
             )
             Stage.SelectDevices -> SelectDevicesScreen(
-                hosts = runState.discoveredHosts,
+                hosts = discoveredHosts,
                 selected = selectedDevices,
                 onToggle = vm::toggleDevice,
                 onSelectAll = vm::selectAll,
@@ -165,8 +168,12 @@ fun WatchDogApp(vm: ScanViewModel = viewModel()) {
                 if (host != null) {
                     val deviceObs = resultObservations.filter { it.host == host }
                     val deviceFindings = resultFindings.filter { it.host == host }
+                    val hostRow = resultHosts.find { it.ip == host }
                     DeviceDetailScreen(
                         host = host,
+                        hostname = hostRow?.hostname,
+                        discoverySource = hostRow?.discoverySources,
+                        osGuess = hostRow?.osGuess,
                         observations = deviceObs,
                         findings = deviceFindings,
                         vulnState = vulnState,

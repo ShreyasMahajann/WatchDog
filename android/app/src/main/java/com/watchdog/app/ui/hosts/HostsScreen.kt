@@ -34,6 +34,7 @@ fun HostsScreen(
     onSelect: ((String) -> Unit)?,
     onBack: () -> Unit,
     onCancel: (() -> Unit)? = null,
+    onStop: (() -> Unit)? = null,
 ) {
     var confirmCancel by remember { mutableStateOf(false) }
     if (confirmCancel && onCancel != null) {
@@ -46,8 +47,11 @@ fun HostsScreen(
         title = if (discovering) "Discovering hosts" else "Pick a host",
         subtitle = if (discovering) "${hosts.size} found so far…" else "${hosts.size} live host${if (hosts.size == 1) "" else "s"} — tap one to deep-scan",
         onBack = onBack,
-        primaryLabel = if (onCancel != null) "Cancel scan" else null,
-        onPrimary = if (onCancel != null) ({ confirmCancel = true }) else null,
+        primaryLabel = if (onStop != null) "Continue (${hosts.size} found)" else null,
+        primaryEnabled = hosts.isNotEmpty(),
+        onPrimary = onStop,
+        secondaryLabel = if (onCancel != null) "Cancel" else null,
+        onSecondary = if (onCancel != null) ({ confirmCancel = true }) else null,
     ) {
         Column(Modifier.fillMaxSize()) {
             if (discovering) {

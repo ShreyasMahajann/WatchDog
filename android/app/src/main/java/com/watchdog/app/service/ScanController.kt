@@ -46,11 +46,20 @@ class ScanController(
 
     private var job: Job? = null
     private val hostIds = mutableMapOf<String, Long>()
+    // Set when the user stops discovery early to proceed with what's been found —
+    // distinguishes a graceful stop from a real cancel in the CancellationException path.
+    private var stoppingDiscovery = false
 
     /** Discover the live-host list, then stop for the user to select which to scan. */
     fun startDiscovery(config: ScanConfig) = launchRun(config) { scanId ->
         discover(scanId, config)
         ScanStateHolder.update { it.copy(running = false, awaitingHostPick = true) } // await selection
+    }
+
+    /** Stop an in-progress discovery early but keep the hosts found so far. */
+    fun stopDiscovery() {
+        stoppingDiscovery = true
+        job?.cancel()
     }
 
     /** Port-scan + fingerprint the user-selected host subset under the current scan. */
@@ -59,8 +68,13 @@ class ScanController(
         job?.cancel()
         job = scope.launch {
             try {
+                // Clear terminal flags so a re-scan (incl. deep re-scan of a device that
+                // already finished) actually runs instead of bouncing back to Results.
                 ScanStateHolder.update {
-                    it.copy(running = true, awaitingHostPick = false, hostsTotal = ips.size, hostsDone = 0)
+                    it.copy(
+                        running = true, finished = false, cancelled = false, awaitingHostPick = false,
+                        currentHost = null, hostsTotal = ips.size, hostsDone = 0,
+                    )
                 }
                 runScan(scanId, ips, config)
             } catch (ce: CancellationException) {
@@ -120,7 +134,13 @@ class ScanController(
                 ScanStateHolder.reset(id, ScanScope.SINGLE_HOST)
                 body(id)
             } catch (ce: CancellationException) {
-                scanId?.let { markCancelled(it) }
+                if (stoppingDiscovery) {
+                    // Graceful early stop: keep discovered hosts, hand off to selection.
+                    stoppingDiscovery = false
+                    ScanStateHolder.update { it.copy(running = false, awaitingHostPick = true) }
+                } else {
+                    scanId?.let { markCancelled(it) }
+                }
                 throw ce
             } catch (e: Exception) {
                 scanId?.let { markFailed(it, e.message ?: e.toString()) }
@@ -138,16 +158,22 @@ class ScanController(
         ScanStateHolder.update { it.copy(phase = ScanPhase.DISCOVERING) }
         val net = networkContext.current()!!
         val cidr = net.cidr!!
+        val seen = mutableSetOf<String>()
         val ips = mutableListOf<String>()
-        engine.discoverHosts(cidr, config).collect { host ->
+
+        suspend fun add(host: DiscoveredHost) {
+            if (!seen.add(host.ip)) return // dedup across the seed + all discoverers
             val hostId = repo.addHost(scanId, host)
             hostIds[host.ip] = hostId
             ips.add(host.ip)
-            ScanStateHolder.update { s ->
-                if (s.discoveredHosts.any { it.ip == host.ip }) s
-                else s.copy(discoveredHosts = s.discoveredHosts + host)
-            }
+            ScanStateHolder.update { s -> s.copy(discoveredHosts = s.discoveredHosts + host) }
         }
+
+        // The gateway is a known-live host (you're connected through it) that often
+        // filters the liveness probes, so seed it explicitly instead of relying on
+        // discovery to find it.
+        net.gatewayIp?.let { add(DiscoveredHost(ip = it, hostname = "gateway", source = "gateway")) }
+        engine.discoverHosts(cidr, config).collect { add(it) }
         return ips
     }
 

@@ -188,6 +188,9 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
 
     fun rediscover() = startDiscovery()
 
+    /** Stop discovery early and go select from whatever's been found (controller flips to awaitingHostPick). */
+    fun stopDiscovery() { ScanForegroundService.stopDiscovery(getApplication()) }
+
     fun toggleDevice(ip: String) {
         _selectedDevices.value = _selectedDevices.value.toMutableSet().apply { if (!add(ip)) remove(ip) }
     }
@@ -232,6 +235,15 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
 
     fun deepRescanDevice() {
         val host = _selectedHost.value ?: return
+        val scanId = _currentScanId.value ?: return
+        // Point the live scan state at this scan with cleared terminal flags, so the
+        // re-scan actually runs (works for a just-finished scan and a reopened history one).
+        ScanStateHolder.update {
+            (if (it.scanId == scanId) it else ScanRunState(scanId = scanId)).copy(
+                running = true, finished = false, cancelled = false, awaitingHostPick = false,
+                hostsTotal = 1, hostsDone = 0, currentHost = null,
+            )
+        }
         ScanForegroundService.scanHosts(getApplication(), listOf(host), ScanDepth.TOP_1000)
         _stage.value = Stage.Scanning
     }
@@ -259,9 +271,14 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
     fun cancel() { ScanForegroundService.cancel(getApplication()) }
 
     fun startOver() {
+        // Stop any running/pending scan job so discovery or a scan doesn't keep
+        // running in the background after the user leaves the flow.
+        val s = runState.value
+        if (s.running || s.awaitingHostPick) ScanForegroundService.cancel(getApplication())
         ScanStateHolder.update { ScanRunState() }
         _selectedDevices.value = emptySet()
         _selectedHost.value = null
+        _currentScanId.value = null
         _stage.value = Stage.Networks
         refreshNetwork()
     }

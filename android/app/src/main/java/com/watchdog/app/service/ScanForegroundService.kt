@@ -39,6 +39,7 @@ class ScanForegroundService : LifecycleService() {
         val config = configFrom(intent)
         when (intent?.action) {
             ACTION_DISCOVER -> controller.startDiscovery(config)
+            ACTION_STOP_DISCOVER -> controller.stopDiscovery()
             ACTION_SCAN_HOSTS -> intent.getStringArrayListExtra(EXTRA_HOSTS)?.let { controller.scanHosts(it, config) }
             // Don't stopSelf() here: that would tear down the scope before the
             // cancellation cleanup runs. cancel() marks the run finished, and
@@ -100,6 +101,7 @@ class ScanForegroundService : LifecycleService() {
 
     companion object {
         const val ACTION_DISCOVER = "com.watchdog.app.DISCOVER"
+        const val ACTION_STOP_DISCOVER = "com.watchdog.app.STOP_DISCOVER"
         const val ACTION_SCAN_HOSTS = "com.watchdog.app.SCAN_HOSTS"
         const val ACTION_CANCEL = "com.watchdog.app.CANCEL"
         const val EXTRA_HOSTS = "hosts"
@@ -117,6 +119,9 @@ class ScanForegroundService : LifecycleService() {
 
         fun startDiscovery(context: Context, depth: ScanDepth, allowLarge: Boolean) =
             context.startForegroundService(base(context, ACTION_DISCOVER, depth, ScanScope.SINGLE_HOST, allowLarge))
+
+        fun stopDiscovery(context: Context) =
+            context.startForegroundService(base(context, ACTION_STOP_DISCOVER, ScanDepth.TOP_1000, ScanScope.SINGLE_HOST, false))
 
         fun scanHosts(context: Context, ips: List<String>, depth: ScanDepth) =
             context.startForegroundService(
