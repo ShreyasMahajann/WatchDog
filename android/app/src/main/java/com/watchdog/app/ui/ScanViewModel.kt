@@ -24,6 +24,7 @@ import com.watchdog.app.settings.SettingsRepository
 import com.watchdog.app.update.UpdateChecker
 import com.watchdog.app.update.UpdateStatus
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -43,6 +44,9 @@ enum class Stage { Networks, Discovering, SelectDevices, ChoosePorts, Scanning, 
 
 /** Stages a live port-scan can terminate from (finish/cancel/fail) → Results. */
 private val FINISHABLE_STAGES = setOf(Stage.Scanning)
+
+/** Minimum time the pull-to-refresh spinner stays up so its animation can settle. */
+private const val MIN_REFRESH_SPINNER_MS = 600L
 
 class ScanViewModel(app: Application) : AndroidViewModel(app) {
 
@@ -163,6 +167,7 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
     fun refreshNetwork() {
         viewModelScope.launch {
             _isRefreshing.value = true
+            val startedAt = System.currentTimeMillis()
             try {
                 _network.value = networkContext.current()
                 wifiScanner.rescan()
@@ -170,6 +175,11 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
                 _nearby.value = result.aps
                 _wifiStatus.value = result.status
             } finally {
+                // These reads hit cache and return within a frame; without a floor
+                // the spinner flips off instantly and PullToRefreshBox strands its
+                // indicator mid-pull instead of animating and settling.
+                val elapsed = System.currentTimeMillis() - startedAt
+                if (elapsed < MIN_REFRESH_SPINNER_MS) delay(MIN_REFRESH_SPINNER_MS - elapsed)
                 _isRefreshing.value = false
             }
         }
