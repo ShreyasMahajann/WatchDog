@@ -101,6 +101,7 @@ fun WatchDogApp(vm: ScanViewModel = viewModel()) {
                 wifiStatus = wifiStatus,
                 updateStatus = updateStatus,
                 isRefreshing = isRefreshing,
+                appVersion = vm.appVersion,
                 onContinue = vm::startDiscovery,
                 onRefresh = vm::refreshNetwork,
                 onGrantPermission = { permissionLauncher.launch(runtimePermissions()) },

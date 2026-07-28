@@ -160,11 +160,17 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
         }
         // Which correlation targets are available (OSV always; own-server if configured).
         viewModelScope.launch { _correlationTargets.value = correlatorFactory.availableTargets() }
-        // One-shot update check against the latest GitHub release.
+        // Update check against the latest GitHub release (also re-run on refresh).
+        checkForUpdate()
+    }
+
+    /** Re-check the latest GitHub release; result surfaces via [updateStatus]. */
+    private fun checkForUpdate() {
         viewModelScope.launch { _updateStatus.value = updateChecker.check() }
     }
 
     fun refreshNetwork() {
+        checkForUpdate()
         viewModelScope.launch {
             _isRefreshing.value = true
             val startedAt = System.currentTimeMillis()

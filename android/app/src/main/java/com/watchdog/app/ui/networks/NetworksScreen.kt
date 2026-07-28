@@ -42,6 +42,7 @@ fun NetworksScreen(
     wifiStatus: WifiScanner.Status,
     updateStatus: UpdateStatus,
     isRefreshing: Boolean,
+    appVersion: String,
     onContinue: () -> Unit,
     onRefresh: () -> Unit,
     onGrantPermission: () -> Unit,
@@ -63,6 +64,7 @@ fun NetworksScreen(
         onPrimary = if (scannable) onContinue else onRefresh,
         secondaryLabel = "Settings",
         onSecondary = onOpenSettings,
+        footnote = "watchDog v$appVersion",
     ) {
         PullToRefreshBox(
             isRefreshing = isRefreshing,

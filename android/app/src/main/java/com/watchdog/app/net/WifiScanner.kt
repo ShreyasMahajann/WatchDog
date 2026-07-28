@@ -69,8 +69,11 @@ class WifiScanner(private val appContext: Context) {
         val wifi = appContext.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
             ?: return Result(Status.UNAVAILABLE, emptyList())
         return try {
-            // Kick a fresh scan (throttled by the OS) then read cached results.
-            runCatching { wifi.startScan() }
+            // Pure read of the last completed scan. Kicking a fresh scan is a
+            // separate, rate-limited call (rescan) — starting one on every read
+            // exhausts the OS scan quota, after which getScanResults() only
+            // returns the sparse association-scan cache (often just the AP you're
+            // joined to). Results from freshly-kicked scans arrive via observe().
             val connectedBssid = wifi.connectionInfo?.bssid
             val aps = wifi.scanResults
                 .filter { it.SSID.isNotBlank() }
@@ -92,9 +95,21 @@ class WifiScanner(private val appContext: Context) {
         }
     }
 
-    /** Best-effort kick of a fresh OS scan. The OS may throttle or ignore it. */
+    // Android throttles foreground startScan() to ~4 calls / 2 min; blowing past
+    // that makes every later scan silently fail. Kicks are spaced to stay under it.
+    @Volatile
+    private var lastKickAtMs = 0L
+
+    /**
+     * Best-effort kick of a fresh OS scan. Rate-limited so bursts of refreshes
+     * (launch + network-change + pull-to-refresh) don't exhaust the OS quota and
+     * stall real scanning. The OS may still throttle or ignore it.
+     */
     @Suppress("DEPRECATION")
     fun rescan() {
+        val now = System.currentTimeMillis()
+        if (now - lastKickAtMs < MIN_RESCAN_INTERVAL_MS) return
+        lastKickAtMs = now
         val wifi = appContext.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
         runCatching { wifi?.startScan() }
     }
@@ -120,5 +135,11 @@ class WifiScanner(private val appContext: Context) {
         )
         rescan()
         awaitClose { runCatching { appContext.unregisterReceiver(receiver) } }
+    }
+
+    private companion object {
+        // Minimum spacing between OS scan kicks; keeps us under Android's
+        // foreground throttle (~4 startScan() calls per 2 minutes).
+        const val MIN_RESCAN_INTERVAL_MS = 30_000L
     }
 }
