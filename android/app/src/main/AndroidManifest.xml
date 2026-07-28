@@ -8,13 +8,14 @@
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
 
-    <!-- Nearby Wi-Fi list. NEARBY_WIFI_DEVICES on API 33+; FINE_LOCATION only
-         needed pre-33 for scan results (they count as location data). We do use
-         SSID/BSSID, so we cannot declare neverForLocation. -->
+    <!-- Nearby Wi-Fi list + scan results. NEARBY_WIFI_DEVICES (API 33+) is meant
+         to replace location for Wi-Fi scanning, but many OEM builds (e.g. Samsung
+         on Android 16) still enforce location in getScanResults() and throw a
+         SecurityException without it — leaving the nearby list empty. So we keep
+         FINE_LOCATION on ALL API levels; scan results count as location data and
+         we read SSID/BSSID, so neverForLocation is not applicable. -->
     <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" />
-    <uses-permission
-        android:name="android.permission.ACCESS_FINE_LOCATION"
-        android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
     <!-- Long-running background scan + completion notification. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />

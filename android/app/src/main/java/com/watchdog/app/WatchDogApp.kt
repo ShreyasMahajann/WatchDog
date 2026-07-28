@@ -206,11 +206,12 @@ fun WatchDogApp(vm: ScanViewModel = viewModel()) {
 
 private fun runtimePermissions(): Array<String> {
     val perms = mutableListOf<String>()
+    // Scan results require location access even on API 33+ on many OEM builds,
+    // so we always request FINE_LOCATION; NEARBY_WIFI_DEVICES is additive on 33+.
+    perms += Manifest.permission.ACCESS_FINE_LOCATION
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         perms += Manifest.permission.POST_NOTIFICATIONS
         perms += Manifest.permission.NEARBY_WIFI_DEVICES
-    } else {
-        perms += Manifest.permission.ACCESS_FINE_LOCATION
     }
     return perms.toTypedArray()
 }

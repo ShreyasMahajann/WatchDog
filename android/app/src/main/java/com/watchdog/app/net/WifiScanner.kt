@@ -41,14 +41,12 @@ class WifiScanner(private val appContext: Context) {
 
     data class Result(val status: Status, val aps: List<NearbyAp>)
 
-    fun hasPermission(): Boolean {
-        val nearby = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            ContextCompat.checkSelfPermission(appContext, Manifest.permission.NEARBY_WIFI_DEVICES) ==
+    // getScanResults() is gated on location access even where NEARBY_WIFI_DEVICES
+    // is held (enforced by many OEM builds), so FINE_LOCATION is the permission
+    // that actually decides whether we can read scan results.
+    fun hasPermission(): Boolean =
+        ContextCompat.checkSelfPermission(appContext, Manifest.permission.ACCESS_FINE_LOCATION) ==
             PackageManager.PERMISSION_GRANTED
-        val location = ContextCompat.checkSelfPermission(appContext, Manifest.permission.ACCESS_FINE_LOCATION) ==
-            PackageManager.PERMISSION_GRANTED
-        return nearby || location
-    }
 
     fun locationEnabled(): Boolean {
         val lm = appContext.getSystemService(Context.LOCATION_SERVICE) as? LocationManager ?: return false
@@ -64,13 +62,9 @@ class WifiScanner(private val appContext: Context) {
     @Suppress("DEPRECATION")
     fun scan(): Result {
         if (!hasPermission()) return Result(Status.NO_PERMISSION, emptyList())
-        // Pre-33, scan results count as location data, so the location toggle must
-        // be on. On API 33+ we hold NEARBY_WIFI_DEVICES (FINE_LOCATION is capped at
-        // API 32 in the manifest), which decouples Wi-Fi scanning from the location
-        // switch — requiring it there wrongly blanks the list when location is off.
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU && !locationEnabled()) {
-            return Result(Status.LOCATION_OFF, emptyList())
-        }
+        // Scan results count as location data — getScanResults() throws without
+        // the location toggle on, so surface that as an actionable status.
+        if (!locationEnabled()) return Result(Status.LOCATION_OFF, emptyList())
 
         val wifi = appContext.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
             ?: return Result(Status.UNAVAILABLE, emptyList())
