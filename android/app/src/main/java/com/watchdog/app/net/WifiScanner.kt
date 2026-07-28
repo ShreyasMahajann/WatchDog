@@ -64,7 +64,13 @@ class WifiScanner(private val appContext: Context) {
     @Suppress("DEPRECATION")
     fun scan(): Result {
         if (!hasPermission()) return Result(Status.NO_PERMISSION, emptyList())
-        if (!locationEnabled()) return Result(Status.LOCATION_OFF, emptyList())
+        // Pre-33, scan results count as location data, so the location toggle must
+        // be on. On API 33+ we hold NEARBY_WIFI_DEVICES (FINE_LOCATION is capped at
+        // API 32 in the manifest), which decouples Wi-Fi scanning from the location
+        // switch — requiring it there wrongly blanks the list when location is off.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU && !locationEnabled()) {
+            return Result(Status.LOCATION_OFF, emptyList())
+        }
 
         val wifi = appContext.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
             ?: return Result(Status.UNAVAILABLE, emptyList())
