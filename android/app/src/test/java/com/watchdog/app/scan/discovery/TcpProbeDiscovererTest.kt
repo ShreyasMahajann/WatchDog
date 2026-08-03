@@ -32,6 +32,24 @@ class TcpProbeDiscovererTest {
     }
 
     /**
+     * A Windows-ICS / hotspot network that fabricates an RST for dead addresses on
+     * only ONE liveness port (445, seen in the field) must still be caught: the
+     * calibration probes the same liveness ports discovery trusts, so it detects
+     * the spoofing and refuses to report the phantoms.
+     */
+    @Test
+    fun `network that only RSTs on port 445 yields no phantom hosts`() = runTest {
+        val discoverer = TcpProbeDiscoverer(probe = { _, port, _ ->
+            if (port == 445) PortState.CLOSED else PortState.FILTERED
+        })
+        val found = discoverer.discover(cidr, config).toList()
+        assertTrue(
+            "445-only RST spoofing should not produce phantom hosts, got ${found.size}",
+            found.isEmpty(),
+        )
+    }
+
+    /**
      * On that same spoofing network, a genuinely-alive host still completes a real
      * TCP handshake (OPEN) on one of its ports, so it must still be discovered.
      */

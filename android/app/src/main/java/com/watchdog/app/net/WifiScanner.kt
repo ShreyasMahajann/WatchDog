@@ -75,18 +75,22 @@ class WifiScanner(private val appContext: Context) {
             // returns the sparse association-scan cache (often just the AP you're
             // joined to). Results from freshly-kicked scans arrive via observe().
             val connectedBssid = wifi.connectionInfo?.bssid
+            // One row per SSID, not per BSSID: a network served by several APs
+            // (mesh/enterprise, e.g. multiple EACCESS-M1 radios) is a single thing
+            // you join, so collapse to the strongest radio like the OS Wi-Fi list.
             val aps = wifi.scanResults
                 .filter { it.SSID.isNotBlank() }
-                .distinctBy { it.BSSID }
-                .sortedByDescending { it.level }
-                .map { r ->
+                .groupBy { it.SSID }
+                .map { (ssid, radios) ->
+                    val strongest = radios.maxByOrNull { it.level }!!
                     NearbyAp(
-                        ssid = r.SSID,
-                        bssid = r.BSSID,
-                        signalLevel = WifiManager.calculateSignalLevel(r.level, 5),
-                        connected = r.BSSID == connectedBssid,
+                        ssid = ssid,
+                        bssid = strongest.BSSID,
+                        signalLevel = WifiManager.calculateSignalLevel(strongest.level, 5),
+                        connected = radios.any { it.BSSID == connectedBssid },
                     )
                 }
+                .sortedByDescending { it.signalLevel }
             Result(if (aps.isEmpty()) Status.EMPTY else Status.OK, aps)
         } catch (e: SecurityException) {
             Result(Status.NO_PERMISSION, emptyList())

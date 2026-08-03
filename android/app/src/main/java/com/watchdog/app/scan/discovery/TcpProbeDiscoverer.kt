@@ -5,6 +5,8 @@ import com.watchdog.app.scan.ScanConfig
 import com.watchdog.app.scan.SocketProbe
 import com.watchdog.app.scan.PortState
 import com.watchdog.app.scan.enumeration.PortSets
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
@@ -17,10 +19,10 @@ import java.util.concurrent.atomic.AtomicInteger
  * The reliable non-root primary. For every candidate IP in the subnet, probe a
  * tiny liveness set; a real handshake (OPEN) always proves the host is alive,
  * and a refused (RST/CLOSED) answer does too — EXCEPT on networks that fabricate
- * RSTs for every address (phone hotspots, carrier-grade NAT), where "refused"
- * would flag the entire subnet as alive. A calibration probe detects those
- * networks up front and, when found, trusts only OPEN. Bounded by a Semaphore so
- * we never exceed the socket fan-out budget.
+ * RSTs for dead addresses (phone hotspots, carrier-grade NAT, Windows ICS), where
+ * "refused" would flag much of the subnet as alive. A calibration probe over the
+ * same liveness ports detects those networks up front and, when found, trusts
+ * only OPEN. Bounded by a Semaphore so we never exceed the socket fan-out budget.
  */
 class TcpProbeDiscoverer(
     private val probe: suspend (ip: String, port: Int, timeoutMs: Int) -> PortState = SocketProbe::probe,
@@ -31,7 +33,7 @@ class TcpProbeDiscoverer(
         val gate = Semaphore(config.maxConcurrentSockets)
         // On RST-spoofing networks a refused connection is meaningless, so fall
         // back to trusting only a completed handshake.
-        val trustRefused = !refusesEveryAddress(cidr, config, gate)
+        val trustRefused = !refusesEveryAddress(cidr, gate)
         coroutineScope {
             for (ip in cidr.hosts()) {
                 launch {
@@ -70,8 +72,13 @@ class TcpProbeDiscoverer(
      * connection can't be trusted as proof of life. A normal LAN silently drops
      * connections to dead addresses, so these samples stay quiet and the signal
      * is preserved.
+     *
+     * Calibration probes the SAME liveness ports discovery trusts — otherwise a
+     * network that only RSTs on, say, 445 (Windows ICS hotspots do exactly this)
+     * slips past calibration yet still flags every dead address alive in the main
+     * pass. A generous timeout is used so a slow RST is seen as CLOSED, not lost.
      */
-    private suspend fun refusesEveryAddress(cidr: Cidr, config: ScanConfig, gate: Semaphore): Boolean {
+    private suspend fun refusesEveryAddress(cidr: Cidr, gate: Semaphore): Boolean {
         val samples = calibrationAddresses(cidr)
         if (samples.size < MIN_CALIBRATION_SAMPLES) return false
         val refused = AtomicInteger(0)
@@ -79,7 +86,7 @@ class TcpProbeDiscoverer(
             for (ip in samples) {
                 launch {
                     gate.withPermit {
-                        if (refusesSample(ip, config)) refused.incrementAndGet()
+                        if (refusesSample(ip)) refused.incrementAndGet()
                     }
                 }
             }
@@ -88,17 +95,19 @@ class TcpProbeDiscoverer(
         return refused.get() * 2 > samples.size
     }
 
-    /** True if the sample answered RST on a calibration port and never opened one. */
-    private suspend fun refusesSample(ip: String, config: ScanConfig): Boolean {
-        var refused = false
-        for (port in CALIBRATION_PORTS) {
-            when (probe(ip, port, config.discoveryProbeTimeoutMs)) {
-                PortState.OPEN -> return false // a real host, not evidence of spoofing
-                PortState.CLOSED -> refused = true
-                PortState.FILTERED -> {}
-            }
+    /**
+     * True if the sample answers RST on any liveness port and never opens one —
+     * i.e. the discovery rule would wrongly call this (probably-dead) address
+     * alive. Ports are probed concurrently so the whole check costs one timeout.
+     */
+    private suspend fun refusesSample(ip: String): Boolean = coroutineScope {
+        val states = PortSets.LIVENESS.map { port ->
+            async { probe(ip, port, CALIBRATION_TIMEOUT_MS) }
+        }.awaitAll()
+        when {
+            states.any { it == PortState.OPEN } -> false // a real host, not evidence of spoofing
+            else -> states.any { it == PortState.CLOSED }
         }
-        return refused
     }
 
     /** Evenly-spread host addresses used only for spoofing calibration. */
@@ -120,7 +129,8 @@ class TcpProbeDiscoverer(
         const val MIN_HOSTS_FOR_CALIBRATION = 8L
         const val CALIBRATION_SAMPLES = 6
         const val MIN_CALIBRATION_SAMPLES = 4
-        // A short, common set — enough to catch a real host (OPEN) or a spoofed RST.
-        val CALIBRATION_PORTS = intArrayOf(80, 443, 22)
+        // Generous vs the per-host discovery timeout so a slow spoofed RST still
+        // registers as CLOSED during calibration instead of timing out.
+        const val CALIBRATION_TIMEOUT_MS = 800
     }
 }
