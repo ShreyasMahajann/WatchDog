@@ -33,9 +33,9 @@ class TcpProbeDiscovererTest {
 
     /**
      * A Windows-ICS / hotspot network that fabricates an RST for dead addresses on
-     * only ONE liveness port (445, seen in the field) must still be caught: the
-     * calibration probes the same liveness ports discovery trusts, so it detects
-     * the spoofing and refuses to report the phantoms.
+     * only ONE liveness port (445, seen in the field) must still be caught: nearly
+     * the whole subnet ends up "refused", which trips the spoofing threshold, so
+     * the refused-only hosts are dropped wholesale.
      */
     @Test
     fun `network that only RSTs on port 445 yields no phantom hosts`() = runTest {
