@@ -24,6 +24,9 @@ android/.idea/
 *.apk
 *.keystore
 *.jks
+# Except the shared debug keystore, committed on purpose so CI releases keep a
+# stable signature and install in-place. Debug-only, not a secret.
+!android/app/debug.keystore
 
 # OS / editor
 .DS_Store
