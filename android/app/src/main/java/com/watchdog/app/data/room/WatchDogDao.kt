@@ -78,6 +78,9 @@ interface WatchDogDao {
     )
     fun observationRows(scanId: Long): Flow<List<ObservationRow>>
 
+    @Query("UPDATE scans SET name = :name WHERE id = :id")
+    suspend fun renameScan(id: Long, name: String?)
+
     @Query("DELETE FROM scans WHERE id = :id")
     suspend fun deleteScan(id: Long)
 }

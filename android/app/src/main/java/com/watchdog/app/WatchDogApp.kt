@@ -27,6 +27,7 @@ import com.watchdog.app.share.ScanShare
 import com.watchdog.app.ui.ScanViewModel
 import com.watchdog.app.ui.Stage
 import com.watchdog.app.ui.history.HistoryScreen
+import com.watchdog.app.ui.home.HomeScreen
 import com.watchdog.app.ui.hosts.HostsScreen
 import com.watchdog.app.ui.networks.NetworksScreen
 import com.watchdog.app.ui.results.DeviceDetailScreen
@@ -55,6 +56,7 @@ fun WatchDogApp(vm: ScanViewModel = viewModel()) {
     val vulnState by vm.vulnCheckState.collectAsStateWithLifecycle()
     val correlationTargets by vm.correlationTargets.collectAsStateWithLifecycle()
     val recentScans by vm.recentScans.collectAsStateWithLifecycle()
+    val resultScan by vm.resultScan.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
     val discoveredHosts = runState.discoveredHosts.sortedBy { runCatching { Cidr.ipToLong(it.ip) }.getOrDefault(Long.MAX_VALUE) }
@@ -68,7 +70,8 @@ fun WatchDogApp(vm: ScanViewModel = viewModel()) {
     }
 
     // Returning from the Android Wi-Fi panel resumes the app — re-detect the
-    // network so the target updates to whatever the user just joined.
+    // network so the target updates to whatever the user just joined. Only fires
+    // on the NetScan screen (guarded by vm.stage.value == Stage.Networks below).
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -80,8 +83,9 @@ fun WatchDogApp(vm: ScanViewModel = viewModel()) {
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    BackHandler(enabled = stage != Stage.Networks && stage != Stage.Scanning) {
+    BackHandler(enabled = stage != Stage.Home && stage != Stage.Scanning) {
         when (stage) {
+            Stage.Networks -> vm.goHome()
             Stage.Discovering -> vm.startOver()
             Stage.SelectDevices -> vm.startOver()
             Stage.ChoosePorts -> vm.backToSelectDevices()
@@ -95,6 +99,11 @@ fun WatchDogApp(vm: ScanViewModel = viewModel()) {
 
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         when (stage) {
+            Stage.Home -> HomeScreen(
+                appVersion = vm.appVersion,
+                onOpenNetScan = vm::openNetScan,
+                onOpenSettings = vm::openSettings,
+            )
             Stage.Networks -> NetworksScreen(
                 network = network,
                 nearby = nearby,
@@ -128,7 +137,6 @@ fun WatchDogApp(vm: ScanViewModel = viewModel()) {
                     )
                 },
                 onOpenHistory = vm::openHistory,
-                onOpenSettings = vm::openSettings,
             )
             Stage.Discovering -> HostsScreen(
                 hosts = discoveredHosts,
@@ -158,9 +166,11 @@ fun WatchDogApp(vm: ScanViewModel = viewModel()) {
             Stage.Scanning -> ScanningScreen(state = runState, onCancel = vm::cancel)
             Stage.Results -> ResultsScreen(
                 scanNetwork = network?.ssid,
+                scanName = resultScan?.name,
                 hosts = resultHosts,
                 observations = resultObservations,
                 onOpenDevice = vm::openDevice,
+                onRename = { name -> vm.currentScanId.value?.let { vm.renameScan(it, name) } },
                 onShare = { ScanShare.share(context, ScanShare.reportText(resultHosts, resultObservations, resultFindings)) },
                 onDone = vm::startOver,
             )
@@ -189,6 +199,7 @@ fun WatchDogApp(vm: ScanViewModel = viewModel()) {
             Stage.History -> HistoryScreen(
                 scans = recentScans,
                 onOpen = vm::openHistoryScan,
+                onRename = vm::renameScan,
                 onDelete = vm::deleteScan,
                 onExport = { id -> vm.exportScan(id, context) },
                 onBack = vm::startOver,

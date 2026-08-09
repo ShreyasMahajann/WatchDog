@@ -42,6 +42,7 @@ data class ScanEntity(
     val startedAt: Long,
     val finishedAt: Long?,
     val status: String, // RUNNING | DONE | CANCELLED | ERROR
+    val name: String? = null, // user-assigned label; null = show networkId · status
 )
 
 @Entity(

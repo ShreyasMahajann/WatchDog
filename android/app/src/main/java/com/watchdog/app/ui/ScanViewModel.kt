@@ -40,7 +40,7 @@ import kotlinx.coroutines.launch
  * device-centric results → on-demand vuln check. Correlation is no longer part of the
  * scan; it runs per device on request and its findings are additive.
  */
-enum class Stage { Networks, Discovering, SelectDevices, ChoosePorts, Scanning, Results, DeviceDetail, History, Settings }
+enum class Stage { Home, Networks, Discovering, SelectDevices, ChoosePorts, Scanning, Results, DeviceDetail, History, Settings }
 
 /** Stages a live port-scan can terminate from (finish/cancel/fail) → Results. */
 private val FINISHABLE_STAGES = setOf(Stage.Scanning)
@@ -64,10 +64,10 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
 
     val runState: StateFlow<ScanRunState> = ScanStateHolder.state
 
-    private val _stage = MutableStateFlow(Stage.Networks)
+    private val _stage = MutableStateFlow(Stage.Home)
     val stage: StateFlow<Stage> = _stage.asStateFlow()
 
-    private var stageBeforeSettings: Stage = Stage.Networks
+    private var stageBeforeSettings: Stage = Stage.Home
 
     private val _network = MutableStateFlow<NetworkInfo?>(null)
     val network: StateFlow<NetworkInfo?> = _network.asStateFlow()
@@ -124,6 +124,11 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
     val resultFindings: StateFlow<List<Finding>> = _currentScanId
         .flatMapLatest { id -> if (id == null) flowOf(emptyList()) else repo.observeFindings(id) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val resultScan: StateFlow<ScanEntity?> = _currentScanId
+        .flatMapLatest { id -> if (id == null) flowOf(null) else repo.observeScan(id) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     val recentScans: StateFlow<List<ScanEntity>> =
         repo.observeRecentScans().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -189,6 +194,11 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun setDepth(depth: ScanDepth) { _selectedDepth.value = depth }
+
+    // --- top-level navigation --------------------------------------------------
+
+    fun openNetScan() { _stage.value = Stage.Networks; refreshNetwork() }
+    fun goHome() { _stage.value = Stage.Home }
 
     // --- discovery + selection -------------------------------------------------
 
@@ -265,6 +275,9 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
     fun openHistory() { _stage.value = Stage.History }
     fun openHistoryScan(scanId: Long) { _currentScanId.value = scanId; _stage.value = Stage.Results }
     fun deleteScan(scanId: Long) { viewModelScope.launch { repo.deleteScan(scanId) } }
+    fun renameScan(scanId: Long, name: String) {
+        viewModelScope.launch { repo.renameScan(scanId, name.trim().ifBlank { null }) }
+    }
 
     fun exportScan(scanId: Long, context: android.content.Context) {
         viewModelScope.launch {

@@ -132,6 +132,8 @@ class ScanRepository(
     fun observeObservations(scanId: Long, host: String): Flow<List<ServiceObservation>> =
         observeObservations(scanId).map { list -> list.filter { it.host == host } }
 
+    suspend fun renameScan(id: Long, name: String?) = dao.renameScan(id, name)
+
     suspend fun deleteScan(id: Long) = dao.deleteScan(id)
 
     // --- mapping ---------------------------------------------------------------

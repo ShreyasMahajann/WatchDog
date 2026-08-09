@@ -50,7 +50,6 @@ fun NetworksScreen(
     onSwitchNetwork: () -> Unit,
     onGetUpdate: (String) -> Unit,
     onOpenHistory: () -> Unit,
-    onOpenSettings: () -> Unit,
 ) {
     val cidr = network?.cidr
     val scannable = cidr != null
@@ -62,8 +61,6 @@ fun NetworksScreen(
         primaryLabel = if (scannable) "Continue" else "Refresh",
         primaryEnabled = true,
         onPrimary = if (scannable) onContinue else onRefresh,
-        secondaryLabel = "Settings",
-        onSecondary = onOpenSettings,
         footnote = "watchDog v$appVersion",
     ) {
         PullToRefreshBox(

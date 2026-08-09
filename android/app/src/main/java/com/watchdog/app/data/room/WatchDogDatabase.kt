@@ -15,7 +15,7 @@ import androidx.room.RoomDatabase
         FingerprintEntity::class,
         FindingEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = false,
 )
 abstract class WatchDogDatabase : RoomDatabase() {
