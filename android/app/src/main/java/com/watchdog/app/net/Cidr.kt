@@ -2,7 +2,7 @@ package com.watchdog.app.net
 
 // Pure IPv4 CIDR math — no android.* imports, so it's JVM-unit-testable.
 // Used to turn the phone's LinkAddress (e.g. 192.168.1.37/24) into the list of
-// host addresses to probe, with a hard guard against enumerating huge subnets.
+// host addresses to probe.
 
 data class Cidr(val networkAddr: Long, val prefixLength: Int) {
 
@@ -35,13 +35,6 @@ data class Cidr(val networkAddr: Long, val prefixLength: Int) {
         get() = if (prefixLength >= 31) size else (size - 2).coerceAtLeast(0)
 
     companion object {
-        /**
-         * Prefixes wider (numerically smaller) than this are refused for full
-         * enumeration without explicit opt-in — a /22 is 1022 hosts, a /16 is
-         * 65k. Callers show a warning and require confirmation below this.
-         */
-        const val SAFE_MIN_PREFIX = 22
-
         fun of(address: String, prefixLength: Int): Cidr {
             require(prefixLength in 0..32) { "prefix out of range: $prefixLength" }
             val ip = ipToLong(address)

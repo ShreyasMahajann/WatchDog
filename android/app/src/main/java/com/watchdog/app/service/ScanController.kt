@@ -118,17 +118,7 @@ class ScanController(
             try {
                 val net = networkContext.current()
                     ?: run { failNoNetwork(); return@launch }
-                val cidr = net.cidr ?: run { failNoNetwork(); return@launch }
-                if (cidr.prefixLength < com.watchdog.app.net.Cidr.SAFE_MIN_PREFIX && !config.allowLargeSubnet) {
-                    ScanStateHolder.update {
-                        it.copy(
-                            failureMessage = "Subnet /${cidr.prefixLength} is too large to scan fully " +
-                                "(${cidr.hostCount} hosts). Enable large-subnet scanning to proceed.",
-                            finished = true, running = false,
-                        )
-                    }
-                    return@launch
-                }
+                net.cidr ?: run { failNoNetwork(); return@launch }
                 val id = repo.startScan(net, config, config.correlatorModeName())
                 scanId = id
                 ScanStateHolder.reset(id, ScanScope.SINGLE_HOST)

@@ -87,9 +87,6 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
     private val _selectedDepth = MutableStateFlow(ScanDepth.TOP_1000)
     val selectedDepth: StateFlow<ScanDepth> = _selectedDepth.asStateFlow()
 
-    private val _allowLargeSubnet = MutableStateFlow(false)
-    val allowLargeSubnet: StateFlow<Boolean> = _allowLargeSubnet.asStateFlow()
-
     // --- iterative-flow state --------------------------------------------------
 
     private val _selectedDevices = MutableStateFlow<Set<String>>(emptySet())
@@ -192,13 +189,12 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun setDepth(depth: ScanDepth) { _selectedDepth.value = depth }
-    fun setAllowLargeSubnet(value: Boolean) { _allowLargeSubnet.value = value }
 
     // --- discovery + selection -------------------------------------------------
 
     fun startDiscovery() {
         _selectedDevices.value = emptySet()
-        ScanForegroundService.startDiscovery(getApplication(), _selectedDepth.value, _allowLargeSubnet.value)
+        ScanForegroundService.startDiscovery(getApplication(), _selectedDepth.value)
         _stage.value = Stage.Discovering
     }
 
