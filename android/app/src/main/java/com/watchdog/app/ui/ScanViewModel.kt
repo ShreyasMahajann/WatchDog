@@ -40,7 +40,10 @@ import kotlinx.coroutines.launch
  * device-centric results → on-demand vuln check. Correlation is no longer part of the
  * scan; it runs per device on request and its findings are additive.
  */
-enum class Stage { Home, Networks, Discovering, SelectDevices, ChoosePorts, Scanning, Results, DeviceDetail, History, Settings }
+enum class Stage {
+    Home, Networks, Discovering, SelectDevices, ChoosePorts, Scanning, Results, DeviceDetail, History, Settings,
+    WpaHub, WpaDiagnostics, WpaCaptures, WpaCaptureDetail, WpaKey, WpaCapture,
+}
 
 /** Stages a live port-scan can terminate from (finish/cancel/fail) → Results. */
 private val FINISHABLE_STAGES = setOf(Stage.Scanning)
@@ -199,6 +202,17 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
 
     fun openNetScan() { _stage.value = Stage.Networks; refreshNetwork() }
     fun goHome() { _stage.value = Stage.Home }
+
+    // --- WPA handshake tool ----------------------------------------------------
+
+    fun openWpa() { _stage.value = Stage.WpaHub }
+    fun openWpaDiagnostics() { _stage.value = Stage.WpaDiagnostics }
+    fun openWpaCaptures() { _stage.value = Stage.WpaCaptures }
+    fun openWpaCaptureDetail() { _stage.value = Stage.WpaCaptureDetail }
+    fun openWpaKey() { _stage.value = Stage.WpaKey }
+    fun openWpaCapture() { _stage.value = Stage.WpaCapture }
+    fun backToWpaHub() { _stage.value = Stage.WpaHub }
+    fun backToWpaCaptures() { _stage.value = Stage.WpaCaptures }
 
     // --- discovery + selection -------------------------------------------------
 

@@ -17,6 +17,10 @@
     <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
+    <!-- WPA Handshake tool: detect an external USB Wi-Fi adapter over OTG. Enumeration needs
+         no permission; the feature is optional so phones without host mode still install. -->
+    <uses-feature android:name="android.hardware.usb.host" android:required="false" />
+
     <!-- Long-running background scan + completion notification. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
