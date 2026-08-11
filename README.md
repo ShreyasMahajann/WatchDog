@@ -120,3 +120,13 @@ The APK is **debug-signed** — installable by sideloading, which is the intende
 distribution channel for this tool. To ship a properly release-signed build
 later, add a keystore + signing secrets and switch the release job to
 `assembleRelease`.
+
+## Support
+
+If watchDog is useful to you, you can support its development:
+
+<a href="https://buymeacoffee.com/shreyasmahajann" target="_blank">☕ Buy Me a Coffee</a>
+
+## License
+
+Released under the [MIT License](LICENSE) — © 2026 Shreyas Mahajan.
