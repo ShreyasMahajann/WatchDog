@@ -43,6 +43,7 @@ import kotlinx.coroutines.launch
 enum class Stage {
     Home, Networks, Discovering, SelectDevices, ChoosePorts, Scanning, Results, DeviceDetail, History, Settings,
     WpaHub, WpaDiagnostics, WpaCaptures, WpaCaptureDetail, WpaKey, WpaCapture,
+    DeviceWatch, DeviceWatchDetail,
 }
 
 /** Stages a live port-scan can terminate from (finish/cancel/fail) → Results. */
@@ -213,6 +214,12 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
     fun openWpaCapture() { _stage.value = Stage.WpaCapture }
     fun backToWpaHub() { _stage.value = Stage.WpaHub }
     fun backToWpaCaptures() { _stage.value = Stage.WpaCaptures }
+
+    // --- Device Watch tool -----------------------------------------------------
+
+    fun openDeviceWatch() { _stage.value = Stage.DeviceWatch }
+    fun openDeviceWatchDetail() { _stage.value = Stage.DeviceWatchDetail }
+    fun backToDeviceWatch() { _stage.value = Stage.DeviceWatch }
 
     // --- discovery + selection -------------------------------------------------
 

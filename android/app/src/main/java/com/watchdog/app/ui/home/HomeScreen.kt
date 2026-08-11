@@ -26,6 +26,7 @@ fun HomeScreen(
     appVersion: String,
     onOpenNetScan: () -> Unit,
     onOpenWpa: () -> Unit,
+    onOpenDeviceWatch: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
     ScreenChrome(
@@ -46,7 +47,12 @@ fun HomeScreen(
         Spacer(Modifier.height(12.dp))
         ToolCard(title = "Wi-Fi Audit", subtitle = "Coming soon", enabled = false, onClick = {})
         Spacer(Modifier.height(12.dp))
-        ToolCard(title = "Device Watch", subtitle = "Coming soon", enabled = false, onClick = {})
+        ToolCard(
+            title = "Device Watch",
+            subtitle = "Track who's on your network",
+            enabled = true,
+            onClick = onOpenDeviceWatch,
+        )
         Spacer(Modifier.height(12.dp))
         ToolCard(
             title = "WPA Handshake",

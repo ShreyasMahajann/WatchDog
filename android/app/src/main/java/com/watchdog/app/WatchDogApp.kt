@@ -27,6 +27,9 @@ import com.watchdog.app.net.Cidr
 import com.watchdog.app.share.ScanShare
 import com.watchdog.app.ui.ScanViewModel
 import com.watchdog.app.ui.Stage
+import com.watchdog.app.ui.devicewatch.DeviceWatchDetailScreen
+import com.watchdog.app.ui.devicewatch.DeviceWatchScreen
+import com.watchdog.app.ui.devicewatch.DeviceWatchViewModel
 import com.watchdog.app.ui.history.HistoryScreen
 import com.watchdog.app.ui.home.HomeScreen
 import com.watchdog.app.ui.hosts.HostsScreen
@@ -46,7 +49,11 @@ import com.watchdog.app.ui.wpa.WpaKeyScreen
 import com.watchdog.app.ui.wpa.WpaViewModel
 
 @Composable
-fun WatchDogApp(vm: ScanViewModel = viewModel(), wpaVm: WpaViewModel = viewModel()) {
+fun WatchDogApp(
+    vm: ScanViewModel = viewModel(),
+    wpaVm: WpaViewModel = viewModel(),
+    deviceWatchVm: DeviceWatchViewModel = viewModel(),
+) {
     val stage by vm.stage.collectAsStateWithLifecycle()
     val runState by vm.runState.collectAsStateWithLifecycle()
     val network by vm.network.collectAsStateWithLifecycle()
@@ -73,6 +80,11 @@ fun WatchDogApp(vm: ScanViewModel = viewModel(), wpaVm: WpaViewModel = viewModel
     val wpaCaptureSupported by wpaVm.captureSupported.collectAsStateWithLifecycle()
     val wpaMessage by wpaVm.message.collectAsStateWithLifecycle()
     val wpaSelectedCaptureId by wpaVm.selectedCaptureId.collectAsStateWithLifecycle()
+    val dwNetwork by deviceWatchVm.network.collectAsStateWithLifecycle()
+    val dwDevices by deviceWatchVm.devices.collectAsStateWithLifecycle()
+    val dwScanning by deviceWatchVm.scanning.collectAsStateWithLifecycle()
+    val dwMessage by deviceWatchVm.message.collectAsStateWithLifecycle()
+    val dwSelectedId by deviceWatchVm.selectedId.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
     val discoveredHosts = runState.discoveredHosts.sortedBy { runCatching { Cidr.ipToLong(it.ip) }.getOrDefault(Long.MAX_VALUE) }
@@ -98,14 +110,26 @@ fun WatchDogApp(vm: ScanViewModel = viewModel(), wpaVm: WpaViewModel = viewModel
         }
     }
 
+    // Surface Device Watch scan summaries as toasts.
+    LaunchedEffect(dwMessage) {
+        dwMessage?.let {
+            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+            deviceWatchVm.consumeMessage()
+        }
+    }
+
     // Returning from the Android Wi-Fi panel resumes the app — re-detect the
     // network so the target updates to whatever the user just joined. Only fires
     // on the NetScan screen (guarded by vm.stage.value == Stage.Networks below).
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME && vm.stage.value == Stage.Networks) {
-                vm.refreshNetwork()
+            if (event == Lifecycle.Event.ON_RESUME) {
+                when (vm.stage.value) {
+                    Stage.Networks -> vm.refreshNetwork()
+                    Stage.DeviceWatch -> deviceWatchVm.refreshNetwork()
+                    else -> {}
+                }
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -128,6 +152,8 @@ fun WatchDogApp(vm: ScanViewModel = viewModel(), wpaVm: WpaViewModel = viewModel
             Stage.WpaCaptureDetail -> vm.backToWpaCaptures()
             Stage.WpaKey -> vm.backToWpaHub()
             Stage.WpaCapture -> vm.backToWpaHub()
+            Stage.DeviceWatch -> vm.goHome()
+            Stage.DeviceWatchDetail -> vm.backToDeviceWatch()
             else -> {}
         }
     }
@@ -138,6 +164,7 @@ fun WatchDogApp(vm: ScanViewModel = viewModel(), wpaVm: WpaViewModel = viewModel
                 appVersion = vm.appVersion,
                 onOpenNetScan = vm::openNetScan,
                 onOpenWpa = vm::openWpa,
+                onOpenDeviceWatch = vm::openDeviceWatch,
                 onOpenSettings = vm::openSettings,
             )
             Stage.Networks -> NetworksScreen(
@@ -300,6 +327,31 @@ fun WatchDogApp(vm: ScanViewModel = viewModel(), wpaVm: WpaViewModel = viewModel
                 onStart = { iface, channel, duration -> wpaVm.startCapture(iface, channel, duration) },
                 onBack = vm::backToWpaHub,
             )
+            Stage.DeviceWatch -> DeviceWatchScreen(
+                appVersion = vm.appVersion,
+                network = dwNetwork,
+                devices = dwDevices,
+                scanning = dwScanning,
+                onScanNow = deviceWatchVm::scanNow,
+                onOpenDevice = { id -> deviceWatchVm.selectDevice(id); vm.openDeviceWatchDetail() },
+                onTrust = deviceWatchVm::trust,
+                onBack = vm::goHome,
+            )
+            Stage.DeviceWatchDetail -> {
+                val device = dwDevices.find { it.id == dwSelectedId }
+                if (device == null) {
+                    vm.backToDeviceWatch()
+                } else {
+                    DeviceWatchDetailScreen(
+                        device = device,
+                        onRename = { name -> deviceWatchVm.rename(device.id, name) },
+                        onTrust = { deviceWatchVm.trust(device.id) },
+                        onUntrust = { deviceWatchVm.untrust(device.id) },
+                        onForget = { deviceWatchVm.forget(device.id); vm.backToDeviceWatch() },
+                        onBack = vm::backToDeviceWatch,
+                    )
+                }
+            }
         }
     }
 }
