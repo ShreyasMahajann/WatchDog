@@ -21,4 +21,8 @@ data class ScanConfig(
     // mDNS/DNS-SD browse window. mDNS never self-terminates, so we listen for a
     // bounded window then stop — otherwise discovery would never finish.
     val mdnsListenMs: Long = 6000,
+    // Run per-host UDP identity probes (SNMP / NetBIOS / SSDP) to name devices
+    // that expose no TCP service we can fingerprint.
+    val identityProbes: Boolean = true,
+    val udpProbeTimeoutMs: Int = 800,
 )

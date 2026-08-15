@@ -59,6 +59,9 @@ interface WatchDogDao {
     @Query("SELECT * FROM findings WHERE scanId = :scanId ORDER BY suppressed ASC, priority DESC")
     fun observeFindings(scanId: Long): Flow<List<FindingEntity>>
 
+    @Query("DELETE FROM findings WHERE scanId = :scanId")
+    suspend fun deleteFindings(scanId: Long)
+
     /** One row per fingerprinted service with its host IP + port, for on-demand correlation. */
     @Query(
         """
@@ -67,6 +70,7 @@ interface WatchDogDao {
                s.version AS version, s.cpe AS cpe, s.distro AS distro, s.distroRelease AS distroRelease,
                s.distroPackage AS distroPackage, s.distroPkgVersion AS distroPkgVersion,
                f.banner AS banner, f.httpServer AS httpServer, f.httpPoweredBy AS httpPoweredBy,
+               f.httpTitle AS httpTitle,
                f.tlsSubject AS tlsSubject, f.tlsIssuer AS tlsIssuer, f.tlsNotAfter AS tlsNotAfter
         FROM services s
         INNER JOIN ports p ON s.portId = p.id
@@ -102,6 +106,7 @@ data class ObservationRow(
     val banner: String?,
     val httpServer: String?,
     val httpPoweredBy: String?,
+    val httpTitle: String?,
     val tlsSubject: String?,
     val tlsIssuer: String?,
     val tlsNotAfter: String?,

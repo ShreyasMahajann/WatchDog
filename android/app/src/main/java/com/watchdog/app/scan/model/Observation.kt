@@ -28,6 +28,7 @@ data class ServiceEvidence(
     val banner: String? = null,
     val httpServer: String? = null,
     val httpPoweredBy: String? = null,
+    val httpTitle: String? = null,
     val tlsSubject: String? = null,
     val tlsIssuer: String? = null,
     val tlsNotAfter: String? = null,

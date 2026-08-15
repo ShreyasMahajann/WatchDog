@@ -14,6 +14,9 @@ import com.watchdog.app.scan.discovery.DiscoveredHost
 import com.watchdog.app.scan.discovery.MdnsDiscoverer
 import com.watchdog.app.scan.discovery.ReachabilityDiscoverer
 import com.watchdog.app.scan.discovery.TcpProbeDiscoverer
+import com.watchdog.app.scan.identity.NetbiosProbe
+import com.watchdog.app.scan.identity.SnmpProbe
+import com.watchdog.app.scan.identity.SsdpProbe
 import com.watchdog.app.settings.SettingsRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -41,6 +44,11 @@ class ScanController(
             TcpProbeDiscoverer(),
             ReachabilityDiscoverer(),
             MdnsDiscoverer(ctx),
+        ),
+        identityProbes = listOf(
+            SnmpProbe(),
+            NetbiosProbe(),
+            SsdpProbe(),
         ),
     )
 

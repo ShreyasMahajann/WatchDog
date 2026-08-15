@@ -73,6 +73,7 @@ fun DeviceDetailScreen(
                 )
                 val e = o.evidence
                 e?.banner?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                e?.httpTitle?.let { Text("Title: $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 e?.httpServer?.let { Text("Server: $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 e?.tlsSubject?.let { Text("TLS: $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)

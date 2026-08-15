@@ -10,7 +10,7 @@ class ObservationRebuildTest {
             host = "192.168.1.5", port = 22, proto = "tcp", serviceName = "ssh",
             vendor = "openbsd", product = "openssh", version = "8.2p1", cpe = null,
             distro = "ubuntu", distroRelease = "focal", distroPackage = null, distroPkgVersion = "1:8.2p1-4",
-            banner = "SSH-2.0-OpenSSH_8.2p1", httpServer = null, httpPoweredBy = null,
+            banner = "SSH-2.0-OpenSSH_8.2p1", httpServer = null, httpPoweredBy = null, httpTitle = null,
             tlsSubject = null, tlsIssuer = null, tlsNotAfter = null,
         )
         val obs = ScanRepository.rowToObservation(row)
@@ -27,7 +27,7 @@ class ObservationRebuildTest {
             host = "10.0.0.9", port = 80, proto = "tcp", serviceName = "http",
             vendor = null, product = null, version = null, cpe = null,
             distro = null, distroRelease = null, distroPackage = null, distroPkgVersion = null,
-            banner = null, httpServer = "nginx", httpPoweredBy = null,
+            banner = null, httpServer = "nginx", httpPoweredBy = null, httpTitle = null,
             tlsSubject = null, tlsIssuer = null, tlsNotAfter = null,
         )
         val obs = ScanRepository.rowToObservation(row)

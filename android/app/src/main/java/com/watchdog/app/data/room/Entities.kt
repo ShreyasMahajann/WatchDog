@@ -131,6 +131,7 @@ data class FingerprintEntity(
     val banner: String?,
     val httpServer: String?,
     val httpPoweredBy: String?,
+    val httpTitle: String? = null,
     val tlsSubject: String?,
     val tlsIssuer: String?,
     val tlsNotAfter: String?,

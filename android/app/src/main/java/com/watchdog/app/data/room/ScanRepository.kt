@@ -101,6 +101,7 @@ class ScanRepository(
                     banner = e.banner,
                     httpServer = e.httpServer,
                     httpPoweredBy = e.httpPoweredBy,
+                    httpTitle = e.httpTitle,
                     tlsSubject = e.tlsSubject,
                     tlsIssuer = e.tlsIssuer,
                     tlsNotAfter = e.tlsNotAfter,
@@ -113,6 +114,9 @@ class ScanRepository(
     suspend fun saveFindings(scanId: Long, findings: List<Finding>) {
         dao.insertFindings(findings.map { it.toEntity(scanId) })
     }
+
+    /** Drop every finding for a scan (used before a full re-correlation). */
+    suspend fun clearFindings(scanId: Long) = dao.deleteFindings(scanId)
 
     suspend fun finishScan(scanId: Long, status: String) {
         dao.setScanStatus(scanId, status, clock())
@@ -204,6 +208,7 @@ class ScanRepository(
                 banner = r.banner,
                 httpServer = r.httpServer,
                 httpPoweredBy = r.httpPoweredBy,
+                httpTitle = r.httpTitle,
                 tlsSubject = r.tlsSubject,
                 tlsIssuer = r.tlsIssuer,
                 tlsNotAfter = r.tlsNotAfter,

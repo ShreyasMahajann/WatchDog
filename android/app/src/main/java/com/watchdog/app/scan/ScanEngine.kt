@@ -6,7 +6,11 @@ import com.watchdog.app.scan.discovery.HostDiscoverer
 import com.watchdog.app.scan.enumeration.PortScanner
 import com.watchdog.app.scan.enumeration.PortSets
 import com.watchdog.app.scan.fingerprint.Fingerprinter
+import com.watchdog.app.scan.identity.IdentityProbe
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
@@ -28,6 +32,7 @@ class ScanEngine(
     private val discoverers: List<HostDiscoverer>,
     private val portScanner: PortScanner = PortScanner(),
     private val fingerprinter: Fingerprinter = Fingerprinter(),
+    private val identityProbes: List<IdentityProbe> = emptyList(),
 ) {
 
     /** Merged, de-duplicated live-host discovery across all sources. */
@@ -73,6 +78,28 @@ class ScanEngine(
             } catch (e: Exception) {
                 send(ScanEvent.Failed("portscan $ip", e.message ?: e.toString()))
             }
+
+            // UDP identity probes — best-effort device naming for hosts that expose
+            // no fingerprintable TCP service. Run concurrently; failures are silent.
+            if (config.identityProbes && identityProbes.isNotEmpty()) {
+                try {
+                    val found = coroutineScope {
+                        identityProbes.map { probe -> async { runCatching { probe.probe(ip, config) }.getOrNull() } }.awaitAll()
+                    }
+                    for (obs in found) {
+                        if (obs != null) {
+                            openCount++
+                            send(ScanEvent.PortOpen(ip, obs.port, obs.serviceName))
+                            send(ScanEvent.ServiceFound(obs))
+                        }
+                    }
+                } catch (ce: CancellationException) {
+                    throw ce
+                } catch (e: Exception) {
+                    send(ScanEvent.Failed("identity $ip", e.message ?: e.toString()))
+                }
+            }
+
             send(ScanEvent.HostFinished(ip, openCount))
         }
 

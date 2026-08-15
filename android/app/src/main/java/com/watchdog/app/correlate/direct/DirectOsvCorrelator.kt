@@ -34,6 +34,12 @@ class DirectOsvCorrelator(
     private val now: () -> String = { java.time.Instant.now().toString() },
 ) : Correlator {
 
+    private companion object {
+        // Cap versionless OSV results per product so a broad package (e.g. a busy
+        // web server) can't flood the KEV filter with a huge candidate list.
+        const val MAX_VERSIONLESS_VULNS = 200
+    }
+
     override suspend fun correlate(observations: List<ServiceObservation>): CorrelateResponse {
         // Group synthesized vuln records by normalized product for the VulnSource.
         val byProduct = mutableMapOf<String, MutableList<VulnRecord>>()
@@ -41,11 +47,26 @@ class DirectOsvCorrelator(
         // De-duplicate identical queries across hosts running the same service.
         val queried = mutableSetOf<String>()
 
+        // Products seen without a readable version: we can't assert vulnerability,
+        // but we query OSV by name and (below) keep only the actively-exploited
+        // (KEV-listed) hits — high signal without the version-confirmation noise.
+        val versionlessCandidates = mutableMapOf<String, MutableList<OsvVuln>>()
+
         for (obs in observations) {
             val product = obs.product ?: continue
             val np = normalizeProduct(product.product)
+            if (np.isEmpty()) continue
             val obsVersion = product.version
-            if (np.isEmpty() || obsVersion == null) continue
+
+            if (obsVersion == null) {
+                if (!queried.add("versionless|$np")) continue
+                val vulns = osv.query(OsvPackage(name = np), version = null)
+                if (vulns.isNotEmpty()) {
+                    versionlessCandidates.getOrPut(np) { mutableListOf() }
+                        .addAll(vulns.take(MAX_VERSIONLESS_VULNS))
+                }
+                continue
+            }
 
             val eco = ecosystemFor(product)
             val queryKey = "${eco?.ecosystem}|${eco?.name}|$obsVersion|$np"
@@ -62,11 +83,23 @@ class DirectOsvCorrelator(
             }
         }
 
-        // Overlay KEV + EPSS across all collected CVE IDs.
-        val allRecords = byProduct.values.flatten()
-        val cveIds = allRecords.map { it.cveId }.toSet()
+        // Overlay KEV + EPSS across every collected CVE ID (versioned records plus
+        // the versionless candidates we still need KEV to filter).
+        val versionedIds = byProduct.values.flatten().map { it.cveId }.toSet()
+        val versionlessIds = versionlessCandidates.values.flatten().mapNotNull { cveIdOf(it) }.toSet()
+        val cveIds = versionedIds + versionlessIds
         val kevMap = if (cveIds.isEmpty()) emptyMap() else kev.fetch()
         val epssMap = if (cveIds.isEmpty()) emptyMap() else epss.fetch(cveIds)
+
+        // Promote only KEV-listed versionless candidates to product-only records.
+        for ((np, vulns) in versionlessCandidates) {
+            for (v in vulns) {
+                val cveId = cveIdOf(v) ?: continue
+                if (kevMap[cveId] == null) continue
+                val record = toVulnRecord(v, np, observedVersion = null, ecosystemConfident = false) ?: continue
+                byProduct.getOrPut(np) { mutableListOf() }.add(record)
+            }
+        }
 
         val enriched = byProduct.mapValues { (_, records) ->
             records.map { r ->
@@ -93,17 +126,21 @@ class DirectOsvCorrelator(
         return OsvPackage(name = name, ecosystem = ecosystem)
     }
 
+    private fun cveIdOf(v: OsvVuln): String? =
+        v.aliases.firstOrNull { it.startsWith("CVE-") } ?: v.id.takeIf { it.startsWith("CVE-") }
+
     private fun toVulnRecord(
         v: OsvVuln,
         normalizedProduct: String,
-        observedVersion: String,
+        observedVersion: String?,
         ecosystemConfident: Boolean,
     ): VulnRecord? {
         val cveId = v.aliases.firstOrNull { it.startsWith("CVE-") } ?: v.id
-        // Ecosystem-confident: OSV already confirmed this version is affected, so
-        // carry the CVE with a self-matching exact range. Upstream: leave the
-        // range bare so the engine emits a low-confidence DETECTED.
-        val range = if (ecosystemConfident) {
+        // Ecosystem-confident with a version: OSV already confirmed this version is
+        // affected, so carry the CVE with a self-matching exact range. Otherwise
+        // (upstream, or versionless) leave the range bare so the engine emits a
+        // low-confidence DETECTED.
+        val range = if (ecosystemConfident && observedVersion != null) {
             VersionRange(product = normalizedProduct, exactVersion = observedVersion)
         } else {
             VersionRange(product = normalizedProduct)

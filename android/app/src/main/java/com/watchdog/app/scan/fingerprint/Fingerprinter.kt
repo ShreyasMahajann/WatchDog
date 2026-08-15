@@ -21,7 +21,7 @@ class Fingerprinter(
     private val tls: TlsProber = TlsProber(),
 ) {
     private val tlsPorts = setOf(443, 465, 636, 993, 995, 8443, 9443, 5986, 8834, 6697)
-    private val httpPorts = setOf(80, 81, 591, 3000, 5000, 8000, 8008, 8080, 8081, 8085, 8088, 8090, 8888, 9000, 9090, 9200)
+    private val httpPorts = PortSets.WEB_LIKELY
     private val bannerPorts = setOf(21, 22, 23, 25, 110, 143, 587, 3306, 5432, 6379, 11211, 27017)
 
     suspend fun fingerprint(host: String, port: Int, config: ScanConfig): ServiceObservation {
@@ -38,6 +38,7 @@ class Fingerprinter(
                     evidence = ServiceEvidence(
                         httpServer = httpRes?.server,
                         httpPoweredBy = httpRes?.poweredBy,
+                        httpTitle = httpRes?.title,
                         tlsSubject = info?.subject,
                         tlsIssuer = info?.issuer,
                         tlsNotAfter = info?.notAfter,
@@ -50,6 +51,7 @@ class Fingerprinter(
                     evidence = ServiceEvidence(
                         httpServer = httpRes?.server,
                         httpPoweredBy = httpRes?.poweredBy,
+                        httpTitle = httpRes?.title,
                     )
                 }
 
@@ -72,6 +74,7 @@ class Fingerprinter(
                             evidence = ServiceEvidence(
                                 httpServer = httpRes.server,
                                 httpPoweredBy = httpRes.poweredBy,
+                                httpTitle = httpRes.title,
                             )
                         }
                     }

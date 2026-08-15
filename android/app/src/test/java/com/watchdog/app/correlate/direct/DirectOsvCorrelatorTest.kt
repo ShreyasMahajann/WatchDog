@@ -72,6 +72,44 @@ class DirectOsvCorrelatorTest {
     }
 
     @Test
+    fun `versionless product surfaces only KEV-listed CVE as DETECTED`() = runBlocking {
+        // OSV versionless query returns two CVEs; only one is in KEV.
+        server.enqueue(
+            MockResponse().setBody(
+                """
+                {"vulns":[
+                  {"id":"GHSA-a","aliases":["CVE-2024-1111"],"summary":"kev one"},
+                  {"id":"GHSA-b","aliases":["CVE-2024-2222"],"summary":"not kev"}
+                ]}
+                """.trimIndent(),
+            ),
+        )
+        server.enqueue(MockResponse().setBody("""{"vulnerabilities":[{"cveID":"CVE-2024-1111","dateAdded":"2024-01-01"}]}"""))
+        server.enqueue(MockResponse().setBody("""{"data":[]}"""))
+
+        val base = server.url("/").toString().trimEnd('/')
+        val correlator = DirectOsvCorrelator(
+            osv = OsvClient(baseUrl = base),
+            kev = KevClient(url = "$base/kev"),
+            epss = EpssClient(baseUrl = "$base/epss"),
+            now = { "2026-08-10T00:00:00Z" },
+        )
+
+        val obs = ServiceObservation(
+            host = "192.168.1.70", port = 8080, serviceName = "http",
+            product = ProductIdentity(product = "nginx", version = null),
+            exposure = Exposure(reachable = true),
+        )
+
+        val res = correlator.correlate(listOf(obs))
+        val kevFinding = res.findings.single { it.cveId == "CVE-2024-1111" }
+        assertEquals(FindingState.DETECTED, kevFinding.state)
+        assertEquals(MatchBasis.PRODUCT_ONLY, kevFinding.matchBasis)
+        assertTrue(kevFinding.knownExploited)
+        assertTrue(res.findings.none { it.cveId == "CVE-2024-2222" })
+    }
+
+    @Test
     fun `bare upstream service surfaces low-confidence DETECTED`() = runBlocking {
         server.enqueue(
             MockResponse().setBody("""{"vulns":[{"id":"GHSA-x","aliases":["CVE-2021-9"],"summary":"y"}]}"""),

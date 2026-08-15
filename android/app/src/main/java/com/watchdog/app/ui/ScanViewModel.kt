@@ -276,6 +276,27 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /**
+     * Correlate every observed service in the current scan at once and persist the
+     * findings. Clears prior findings first so a re-run is a clean recompute rather
+     * than an append. This is what turns the scan-wide "0 findings" into real output.
+     */
+    fun checkAllVulnerabilities(target: CorrelationTarget) {
+        val scanId = _currentScanId.value ?: return
+        viewModelScope.launch {
+            _vulnCheckState.value = VulnCheckState.Running
+            try {
+                val obs = repo.observeObservations(scanId).first()
+                val response = correlatorFactory.create(target).correlate(obs)
+                repo.clearFindings(scanId)
+                repo.saveFindings(scanId, response.findings + response.suppressed)
+                _vulnCheckState.value = VulnCheckState.Idle
+            } catch (e: Exception) {
+                _vulnCheckState.value = VulnCheckState.Error(e.message ?: "Check failed")
+            }
+        }
+    }
+
     fun deepRescanDevice() {
         val host = _selectedHost.value ?: return
         val scanId = _currentScanId.value ?: return

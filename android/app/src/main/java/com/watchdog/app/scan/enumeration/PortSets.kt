@@ -11,6 +11,16 @@ object PortSets {
     /** Ports probed to decide "is this host alive" during discovery. */
     val LIVENESS = intArrayOf(80, 443, 22, 445, 139, 8080, 53, 3389, 23, 21)
 
+    /**
+     * Ports worth an HTTP(S) probe even when they aren't the obvious 80/443 — many
+     * IoT boxes, cameras, NAS units, and Apple AirPlay endpoints answer HTTP here,
+     * so a Server header or page title can identify an otherwise-nameless device.
+     */
+    val WEB_LIKELY = setOf(
+        80, 81, 443, 591, 2000, 2020, 3000, 5000, 7000, 8000, 8008, 8010, 8080, 8081,
+        8085, 8088, 8090, 8443, 8888, 9000, 9090, 9200, 8834, 5601,
+    )
+
     /** Guess a coarse service name from a well-known port (pre-fingerprint). */
     fun serviceHint(port: Int): String? = WELL_KNOWN[port]
 
@@ -55,13 +65,17 @@ object PortSets {
 
     private val WELL_KNOWN = mapOf(
         21 to "ftp", 22 to "ssh", 23 to "telnet", 25 to "smtp", 53 to "dns",
-        80 to "http", 110 to "pop3", 111 to "rpcbind", 135 to "msrpc", 139 to "netbios-ssn",
-        143 to "imap", 389 to "ldap", 443 to "https", 445 to "microsoft-ds", 587 to "smtp",
-        631 to "ipp", 993 to "imaps", 995 to "pop3s", 1433 to "mssql", 1521 to "oracle",
-        3000 to "http", 3306 to "mysql", 3389 to "rdp", 5432 to "postgresql", 5601 to "kibana",
-        5672 to "amqp", 5900 to "vnc", 5985 to "winrm", 6379 to "redis", 8000 to "http",
-        8080 to "http", 8443 to "https", 8888 to "http", 9042 to "cassandra", 9200 to "elasticsearch",
+        80 to "http", 88 to "kerberos", 110 to "pop3", 111 to "rpcbind", 135 to "msrpc",
+        137 to "netbios-ns", 139 to "netbios-ssn", 143 to "imap", 161 to "snmp", 389 to "ldap",
+        443 to "https", 445 to "microsoft-ds", 548 to "afp", 554 to "rtsp", 587 to "smtp",
+        631 to "ipp", 873 to "rsync", 993 to "imaps", 995 to "pop3s", 1433 to "mssql",
+        1521 to "oracle", 1900 to "ssdp", 2000 to "http", 3000 to "http", 3306 to "mysql",
+        3389 to "rdp", 3689 to "daap", 5000 to "upnp", 5060 to "sip", 5353 to "mdns",
+        5432 to "postgresql", 5555 to "adb", 5601 to "kibana", 5672 to "amqp", 5900 to "vnc",
+        5985 to "winrm", 6379 to "redis", 6881 to "bittorrent", 7000 to "airplay",
+        8000 to "http", 8009 to "ajp13", 8010 to "http", 8080 to "http", 8443 to "https",
+        8888 to "http", 9042 to "cassandra", 9100 to "printer", 9200 to "elasticsearch",
         9300 to "elasticsearch", 11211 to "memcached", 15672 to "rabbitmq", 27017 to "mongodb",
-        61616 to "activemq",
+        32400 to "plex", 49152 to "upnp", 61616 to "activemq",
     )
 }
