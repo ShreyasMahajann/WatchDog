@@ -5,6 +5,7 @@ import com.watchdog.app.net.NetworkContext
 import com.watchdog.app.scan.ScanConfig
 import com.watchdog.app.scan.ScanEngine
 import com.watchdog.app.scan.ScanScope
+import com.watchdog.app.scan.discovery.DiscoveredHost
 import kotlinx.coroutines.flow.toList
 
 /** Result of a Device Watch pass. */
@@ -38,7 +39,15 @@ class DeviceWatchScanner(
         val scopeKey = WatchScope.of(net) ?: return WatchOutcome.NoNetwork
         val label = WatchScope.label(net)
 
-        val discovered = engine.discoverHosts(cidr, config).toList()
+        // The gateway is known-live and often filters every discovery probe.
+        // Seed it explicitly, as NetScan does, so an otherwise healthy LAN does
+        // not look empty and flip the complete baseline offline.
+        val discovered = buildList {
+            net.gatewayIp?.let {
+                add(DiscoveredHost(ip = it, hostname = "gateway", source = "gateway"))
+            }
+            addAll(engine.discoverHosts(cidr, config).toList())
+        }.distinctBy { it.ip }
         val existing = repo.devicesInScope(scopeKey)
         val diff = DeviceWatchDiff.compute(existing, discovered, scopeKey, label, now())
 

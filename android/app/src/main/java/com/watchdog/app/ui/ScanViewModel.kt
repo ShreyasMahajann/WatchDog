@@ -268,6 +268,7 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
             try {
                 val obs = repo.observeObservations(scanId, host).first()
                 val response = correlatorFactory.create(target).correlate(obs)
+                repo.clearFindings(scanId, host)
                 repo.saveFindings(scanId, response.findings + response.suppressed)
                 _vulnCheckState.value = VulnCheckState.Idle
             } catch (e: Exception) {
@@ -300,16 +301,33 @@ class ScanViewModel(app: Application) : AndroidViewModel(app) {
     fun deepRescanDevice() {
         val host = _selectedHost.value ?: return
         val scanId = _currentScanId.value ?: return
-        // Point the live scan state at this scan with cleared terminal flags, so the
-        // re-scan actually runs (works for a just-finished scan and a reopened history one).
-        ScanStateHolder.update {
-            (if (it.scanId == scanId) it else ScanRunState(scanId = scanId)).copy(
-                running = true, finished = false, cancelled = false, awaitingHostPick = false,
-                hostsTotal = 1, hostsDone = 0, currentHost = null,
-            )
+        viewModelScope.launch {
+            try {
+                repo.clearHostScanData(scanId, host)
+                // Point the live scan state at this scan with cleared terminal flags
+                // and without stale per-host progress from the previous enumeration.
+                ScanStateHolder.update { current ->
+                    val base = if (current.scanId == scanId) current else ScanRunState(scanId = scanId)
+                    base.copy(
+                        running = true,
+                        finished = false,
+                        cancelled = false,
+                        awaitingHostPick = false,
+                        hostsTotal = 1,
+                        hostsDone = 0,
+                        currentHost = null,
+                        openPortsByHost = base.openPortsByHost - host,
+                        services = base.services.filterNot { service -> service.host == host },
+                        findings = base.findings.filterNot { finding -> finding.host == host },
+                        suppressed = base.suppressed.filterNot { finding -> finding.host == host },
+                    )
+                }
+                ScanForegroundService.scanHosts(getApplication(), listOf(host), ScanDepth.TOP_1000)
+                _stage.value = Stage.Scanning
+            } catch (e: Exception) {
+                _vulnCheckState.value = VulnCheckState.Error(e.message ?: "Deep re-scan failed to start")
+            }
         }
-        ScanForegroundService.scanHosts(getApplication(), listOf(host), ScanDepth.TOP_1000)
-        _stage.value = Stage.Scanning
     }
 
     // --- history ---------------------------------------------------------------

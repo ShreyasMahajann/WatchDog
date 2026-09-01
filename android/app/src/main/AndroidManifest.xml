@@ -15,6 +15,7 @@
          FINE_LOCATION on ALL API levels; scan results count as location data and
          we read SSID/BSSID, so neverForLocation is not applicable. -->
     <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
     <!-- WPA Handshake tool: detect an external USB Wi-Fi adapter over OTG. Enumeration needs
@@ -29,6 +30,8 @@
     <application
         android:name=".WatchDogApplication"
         android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:label="@string/app_name"

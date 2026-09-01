@@ -62,6 +62,21 @@ interface WatchDogDao {
     @Query("DELETE FROM findings WHERE scanId = :scanId")
     suspend fun deleteFindings(scanId: Long)
 
+    @Query("DELETE FROM findings WHERE scanId = :scanId AND host = :host")
+    suspend fun deleteFindings(scanId: Long, host: String)
+
+    /**
+     * Remove a host's prior enumeration. Foreign-key cascades remove its
+     * services and fingerprints while preserving the host/history row.
+     */
+    @Query(
+        """
+        DELETE FROM ports
+        WHERE hostId IN (SELECT id FROM hosts WHERE scanId = :scanId AND ip = :host)
+        """,
+    )
+    suspend fun deleteHostObservations(scanId: Long, host: String)
+
     /** One row per fingerprinted service with its host IP + port, for on-demand correlation. */
     @Query(
         """

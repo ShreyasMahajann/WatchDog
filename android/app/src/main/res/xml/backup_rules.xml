@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Android Keystore keys are device-bound. Restoring this encrypted file
+         without its original key makes EncryptedSharedPreferences unreadable. -->
+    <exclude domain="sharedpref" path="wpa_sec_secure.xml" />
+</full-backup-content>

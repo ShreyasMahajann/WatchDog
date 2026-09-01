@@ -51,7 +51,7 @@ import com.watchdog.app.ui.wpa.WpaViewModel
 @Composable
 fun WatchDogApp(
     vm: ScanViewModel = viewModel(),
-    wpaVm: WpaViewModel = viewModel(),
+    wpaVm: WpaViewModel? = null,
     deviceWatchVm: DeviceWatchViewModel = viewModel(),
 ) {
     val stage by vm.stage.collectAsStateWithLifecycle()
@@ -72,14 +72,6 @@ fun WatchDogApp(
     val correlationTargets by vm.correlationTargets.collectAsStateWithLifecycle()
     val recentScans by vm.recentScans.collectAsStateWithLifecycle()
     val resultScan by vm.resultScan.collectAsStateWithLifecycle()
-    val wpaReport by wpaVm.report.collectAsStateWithLifecycle()
-    val wpaLoading by wpaVm.loading.collectAsStateWithLifecycle()
-    val wpaCaptures by wpaVm.captures.collectAsStateWithLifecycle()
-    val wpaBusy by wpaVm.busy.collectAsStateWithLifecycle()
-    val wpaKeyConfigured by wpaVm.keyConfigured.collectAsStateWithLifecycle()
-    val wpaCaptureSupported by wpaVm.captureSupported.collectAsStateWithLifecycle()
-    val wpaMessage by wpaVm.message.collectAsStateWithLifecycle()
-    val wpaSelectedCaptureId by wpaVm.selectedCaptureId.collectAsStateWithLifecycle()
     val dwNetwork by deviceWatchVm.network.collectAsStateWithLifecycle()
     val dwDevices by deviceWatchVm.devices.collectAsStateWithLifecycle()
     val dwScanning by deviceWatchVm.scanning.collectAsStateWithLifecycle()
@@ -95,19 +87,6 @@ fun WatchDogApp(
 
     LaunchedEffect(Unit) {
         permissionLauncher.launch(runtimePermissions())
-    }
-
-    // SAF picker for importing a handshake capture; any file, validated by parsing.
-    val importLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocument(),
-    ) { uri -> uri?.let { wpaVm.importCapture(it) } }
-
-    // Surface WPA action results (import/submit/refresh/key) as toasts.
-    LaunchedEffect(wpaMessage) {
-        wpaMessage?.let {
-            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
-            wpaVm.consumeMessage()
-        }
     }
 
     // Surface Device Watch scan summaries as toasts.
@@ -278,59 +257,13 @@ fun WatchDogApp(
                 onSetDepth = vm::saveDefaultDepth,
                 onBack = vm::closeSettings,
             )
-            Stage.WpaHub -> WpaHubScreen(
-                appVersion = vm.appVersion,
-                captureCount = wpaCaptures.size,
-                keyConfigured = wpaKeyConfigured,
-                captureSupported = wpaCaptureSupported,
-                onOpenDiagnostics = vm::openWpaDiagnostics,
-                onImport = { importLauncher.launch(arrayOf("*/*")) },
-                onStartCapture = vm::openWpaCapture,
-                onOpenCaptures = vm::openWpaCaptures,
-                onOpenKey = vm::openWpaKey,
-                onBack = vm::goHome,
-            )
-            Stage.WpaDiagnostics -> WpaDiagnosticsScreen(
-                report = wpaReport,
-                loading = wpaLoading,
-                onRefresh = { wpaVm.refresh(activeRootCheck = false) },
-                onTestRoot = wpaVm::testRootAccess,
-                onBack = vm::backToWpaHub,
-            )
-            Stage.WpaCaptures -> WpaCapturesScreen(
-                captures = wpaCaptures,
-                busy = wpaBusy,
-                onOpen = { id -> wpaVm.selectCapture(id); vm.openWpaCaptureDetail() },
-                onRefresh = wpaVm::refreshResults,
-                onBack = vm::backToWpaHub,
-            )
-            Stage.WpaCaptureDetail -> {
-                val cap = wpaCaptures.find { it.id == wpaSelectedCaptureId }
-                if (cap == null) {
-                    vm.backToWpaCaptures()
-                } else {
-                    WpaCaptureDetailScreen(
-                        capture = cap,
-                        busy = wpaBusy,
-                        onSubmit = { wpaVm.submit(cap.id) },
-                        onRefresh = wpaVm::refreshResults,
-                        onDelete = { wpaVm.deleteCapture(cap); vm.backToWpaCaptures() },
-                        onBack = vm::backToWpaCaptures,
-                    )
-                }
-            }
-            Stage.WpaKey -> WpaKeyScreen(
-                configured = wpaKeyConfigured,
-                onSave = wpaVm::saveKey,
-                onClear = wpaVm::clearKey,
-                onBack = vm::backToWpaHub,
-            )
-            Stage.WpaCapture -> WpaCaptureScreen(
-                interfaces = wpaVm.captureInterfaces(),
-                busy = wpaBusy,
-                onStart = { iface, channel, duration -> wpaVm.startCapture(iface, channel, duration) },
-                onBack = vm::backToWpaHub,
-            )
+            Stage.WpaHub,
+            Stage.WpaDiagnostics,
+            Stage.WpaCaptures,
+            Stage.WpaCaptureDetail,
+            Stage.WpaKey,
+            Stage.WpaCapture,
+            -> WpaFlow(stage = stage, appVm = vm, injectedVm = wpaVm)
             Stage.DeviceWatch -> DeviceWatchScreen(
                 appVersion = vm.appVersion,
                 network = dwNetwork,
@@ -360,10 +293,103 @@ fun WatchDogApp(
     }
 }
 
+/**
+ * Keep the optional WPA subsystem out of the startup path. Its ViewModel opens
+ * encrypted preferences and WPA-specific Room state, so it is created only
+ * after the user enters a WPA screen.
+ */
+@Composable
+private fun WpaFlow(
+    stage: Stage,
+    appVm: ScanViewModel,
+    injectedVm: WpaViewModel?,
+) {
+    val wpaVm = injectedVm ?: viewModel()
+    val report by wpaVm.report.collectAsStateWithLifecycle()
+    val loading by wpaVm.loading.collectAsStateWithLifecycle()
+    val captures by wpaVm.captures.collectAsStateWithLifecycle()
+    val busy by wpaVm.busy.collectAsStateWithLifecycle()
+    val keyConfigured by wpaVm.keyConfigured.collectAsStateWithLifecycle()
+    val captureSupported by wpaVm.captureSupported.collectAsStateWithLifecycle()
+    val message by wpaVm.message.collectAsStateWithLifecycle()
+    val selectedCaptureId by wpaVm.selectedCaptureId.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri -> uri?.let { wpaVm.importCapture(it) } }
+
+    LaunchedEffect(message) {
+        message?.let {
+            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+            wpaVm.consumeMessage()
+        }
+    }
+
+    when (stage) {
+        Stage.WpaHub -> WpaHubScreen(
+            appVersion = appVm.appVersion,
+            captureCount = captures.size,
+            keyConfigured = keyConfigured,
+            captureSupported = captureSupported,
+            onOpenDiagnostics = appVm::openWpaDiagnostics,
+            onImport = { importLauncher.launch(arrayOf("*/*")) },
+            onStartCapture = appVm::openWpaCapture,
+            onOpenCaptures = appVm::openWpaCaptures,
+            onOpenKey = appVm::openWpaKey,
+            onBack = appVm::goHome,
+        )
+        Stage.WpaDiagnostics -> WpaDiagnosticsScreen(
+            report = report,
+            loading = loading,
+            onRefresh = { wpaVm.refresh(activeRootCheck = false) },
+            onTestRoot = wpaVm::testRootAccess,
+            onBack = appVm::backToWpaHub,
+        )
+        Stage.WpaCaptures -> WpaCapturesScreen(
+            captures = captures,
+            busy = busy,
+            onOpen = { id -> wpaVm.selectCapture(id); appVm.openWpaCaptureDetail() },
+            onRefresh = wpaVm::refreshResults,
+            onBack = appVm::backToWpaHub,
+        )
+        Stage.WpaCaptureDetail -> {
+            val capture = captures.find { it.id == selectedCaptureId }
+            if (capture == null) {
+                LaunchedEffect(Unit) { appVm.backToWpaCaptures() }
+            } else {
+                WpaCaptureDetailScreen(
+                    capture = capture,
+                    busy = busy,
+                    onSubmit = { wpaVm.submit(capture.id) },
+                    onRefresh = wpaVm::refreshResults,
+                    onDelete = { wpaVm.deleteCapture(capture); appVm.backToWpaCaptures() },
+                    onBack = appVm::backToWpaCaptures,
+                )
+            }
+        }
+        Stage.WpaKey -> WpaKeyScreen(
+            configured = keyConfigured,
+            onSave = wpaVm::saveKey,
+            onClear = wpaVm::clearKey,
+            onBack = appVm::backToWpaHub,
+        )
+        Stage.WpaCapture -> WpaCaptureScreen(
+            interfaces = wpaVm.captureInterfaces(),
+            busy = busy,
+            onStart = { iface, channel, duration -> wpaVm.startCapture(iface, channel, duration) },
+            onBack = appVm::backToWpaHub,
+        )
+        else -> Unit
+    }
+}
+
 private fun runtimePermissions(): Array<String> {
     val perms = mutableListOf<String>()
     // Scan results require location access even on API 33+ on many OEM builds,
-    // so we always request FINE_LOCATION; NEARBY_WIFI_DEVICES is additive on 33+.
+    // so we always request COARSE + FINE together; Android 12+ ignores a request
+    // for FINE alone. NEARBY_WIFI_DEVICES is additive on API 33+.
+    perms += Manifest.permission.ACCESS_COARSE_LOCATION
     perms += Manifest.permission.ACCESS_FINE_LOCATION
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         perms += Manifest.permission.POST_NOTIFICATIONS

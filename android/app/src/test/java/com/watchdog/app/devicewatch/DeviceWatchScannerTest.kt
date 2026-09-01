@@ -118,9 +118,19 @@ class DeviceWatchScannerTest {
     fun `first scan persists all devices as present and new`() = runTest {
         val dao = FakeDao()
         val outcome = scanner(wifi(), listOf(host("192.168.1.2"), host("192.168.1.3")), dao, now = 10).scan()
-        assertEquals(WatchOutcome.Scanned(present = 2, newCount = 2, offline = 0), outcome)
-        assertEquals(2, dao.rows.size)
+        assertEquals(WatchOutcome.Scanned(present = 3, newCount = 3, offline = 0), outcome)
+        assertEquals(3, dao.rows.size)
         assertTrue(dao.rows.all { it.present && !it.trusted })
+    }
+
+    @Test
+    fun `empty discovery still seeds the known-live gateway`() = runTest {
+        val dao = FakeDao()
+        val outcome = scanner(wifi(), emptyList(), dao, now = 10).scan()
+
+        assertEquals(WatchOutcome.Scanned(present = 1, newCount = 1, offline = 0), outcome)
+        assertEquals("192.168.1.1", dao.rows.single().ip)
+        assertEquals("gateway", dao.rows.single().hostname)
     }
 
     @Test
@@ -131,8 +141,8 @@ class DeviceWatchScannerTest {
         // 192.168.1.3 gone; 192.168.1.9 new.
         val outcome = scanner(net, listOf(host("192.168.1.2"), host("192.168.1.9")), dao, now = 20).scan()
 
-        assertEquals(WatchOutcome.Scanned(present = 2, newCount = 1, offline = 1), outcome)
-        assertEquals(3, dao.rows.size) // nothing deleted
+        assertEquals(WatchOutcome.Scanned(present = 3, newCount = 1, offline = 1), outcome)
+        assertEquals(4, dao.rows.size) // nothing deleted, including the gateway
         val dropped = dao.rows.single { it.ip == "192.168.1.3" }
         assertFalse(dropped.present)
         val added = dao.rows.single { it.ip == "192.168.1.9" }
@@ -144,11 +154,13 @@ class DeviceWatchScannerTest {
         val dao = FakeDao()
         val net = wifi()
         scanner(net, listOf(host("192.168.1.2")), dao, now = 10).scan()
-        DeviceWatchRepository(dao).setTrusted(dao.rows.single().id, true)
+        val watched = dao.rows.single { it.ip == "192.168.1.2" }
+        DeviceWatchRepository(dao).setTrusted(watched.id, true)
 
         val outcome = scanner(net, listOf(host("192.168.1.2")), dao, now = 20).scan()
-        assertEquals(WatchOutcome.Scanned(present = 1, newCount = 0, offline = 0), outcome)
-        assertTrue(dao.rows.single().trusted)
-        assertEquals(20L, dao.rows.single().lastSeen)
+        assertEquals(WatchOutcome.Scanned(present = 2, newCount = 0, offline = 0), outcome)
+        val refreshed = dao.rows.single { it.ip == "192.168.1.2" }
+        assertTrue(refreshed.trusted)
+        assertEquals(20L, refreshed.lastSeen)
     }
 }

@@ -118,6 +118,15 @@ class ScanRepository(
     /** Drop every finding for a scan (used before a full re-correlation). */
     suspend fun clearFindings(scanId: Long) = dao.deleteFindings(scanId)
 
+    /** Drop one host's findings before a per-device re-correlation. */
+    suspend fun clearFindings(scanId: Long, host: String) = dao.deleteFindings(scanId, host)
+
+    /** Replace, rather than append to, the results of a deep host re-scan. */
+    suspend fun clearHostScanData(scanId: Long, host: String) {
+        dao.deleteFindings(scanId, host)
+        dao.deleteHostObservations(scanId, host)
+    }
+
     suspend fun finishScan(scanId: Long, status: String) {
         dao.setScanStatus(scanId, status, clock())
     }
