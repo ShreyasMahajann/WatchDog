@@ -41,6 +41,9 @@ jobs:
       - name: Run JVM unit tests
         working-directory: android
         run: gradle testDebugUnitTest
+      - name: Run Android lint
+        working-directory: android
+        run: gradle lintDebug
       - name: Assemble debug APK
         working-directory: android
         run: gradle assembleDebug
