@@ -21,4 +21,5 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "watchDog"
+include(":core")
 include(":app")

@@ -4,7 +4,7 @@ import java.io.File
 import java.util.concurrent.TimeUnit
 
 /** Small shared helpers for locating and running command-line tools. */
-internal object Shell {
+object Shell {
 
     /** Result of running a short command: exit code (-1 if it never completed) and combined output. */
     data class Output(val exitCode: Int, val text: String, val timedOut: Boolean)

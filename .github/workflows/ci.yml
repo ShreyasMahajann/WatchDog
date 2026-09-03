@@ -40,7 +40,7 @@ jobs:
           gradle-version: "8.10.2"
       - name: Run JVM unit tests
         working-directory: android
-        run: gradle testDebugUnitTest
+        run: gradle :core:test :app:testDebugUnitTest
       - name: Run Android lint
         working-directory: android
         run: gradle lintDebug
