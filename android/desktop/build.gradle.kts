@@ -37,6 +37,17 @@ compose.desktop {
             packageVersion = (project.findProperty("versionName") as String?) ?: "0.1.0"
             description = "watchDog network security assessment (desktop)"
             vendor = "Shreyas Mahajan"
+
+            windows {
+                // Stable identity so upgrades replace the prior install instead of
+                // stacking. jpackage/WiX needs a fixed UUID for the installer.
+                upgradeUuid = "5f2b9c1e-3a4d-4b6c-8e0f-1a2b3c4d5e6f"
+                menuGroup = "watchDog"
+            }
+            linux {
+                // Debian package names must be lowercase — jpackage rejects "watchDog".
+                packageName = "watchdog"
+            }
         }
     }
 }
