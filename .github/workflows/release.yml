@@ -76,7 +76,7 @@ jobs:
 
       - name: Run Android JVM unit tests
         working-directory: android
-        run: gradle testDebugUnitTest
+        run: gradle :core:test :app:testDebugUnitTest
 
       - name: Run Android lint
         working-directory: android

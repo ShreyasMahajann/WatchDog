@@ -14,27 +14,6 @@ import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.callbackFlow
 import java.net.Inet4Address
 
-/** The network the phone is currently joined to and can actually scan. */
-data class NetworkInfo(
-    val ssid: String?, // null if unknown / no permission
-    val cidr: Cidr?, // null if no IPv4 link found
-    val localIp: String?, // the phone's own address on this LAN
-    val gatewayIp: String?,
-    val isWifi: Boolean,
-)
-
-interface NetworkContext {
-    /** The active network, or null if offline / no IPv4. */
-    fun current(): NetworkInfo?
-
-    /**
-     * Emits (conflated) whenever the default network changes — joined, dropped,
-     * or its link properties/capabilities shift. Callers re-read [current] on each
-     * emission. The stream is hot for as long as it's collected.
-     */
-    fun changes(): Flow<Unit>
-}
-
 /**
  * Derives the current subnet from ConnectivityManager/LinkProperties (the
  * reliable path — not the deprecated WifiManager.getDhcpInfo()). SSID is
