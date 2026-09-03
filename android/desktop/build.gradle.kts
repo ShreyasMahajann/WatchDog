@@ -1,6 +1,9 @@
+import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+
 plugins {
     alias(libs.plugins.kotlin.jvm)
-    application
+    alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.compose.desktop)
 }
 
 java {
@@ -12,12 +15,32 @@ kotlin {
     jvmToolchain(17)
 }
 
-application {
-    // Headless scan runner for now; the Compose GUI entry point is added next.
-    mainClass.set("com.watchdog.desktop.HeadlessScanKt")
-}
-
 dependencies {
     implementation(project(":core"))
     implementation(libs.jmdns)
+
+    implementation(compose.desktop.currentOs)
+    implementation(compose.material3)
+}
+
+compose.desktop {
+    application {
+        mainClass = "com.watchdog.desktop.MainKt"
+
+        nativeDistributions {
+            // Windows + Linux are the desktop targets (macOS not built/tested).
+            targetFormats(TargetFormat.Msi, TargetFormat.Deb)
+            packageName = "watchDog"
+            packageVersion = (project.findProperty("versionName") as String?) ?: "0.1.0"
+            description = "watchDog network security assessment (desktop)"
+        }
+    }
+}
+
+// Keep the headless CLI runnable alongside the GUI: `gradle :desktop:runHeadless`.
+tasks.register<JavaExec>("runHeadless") {
+    group = "application"
+    description = "Run the headless scan runner instead of the GUI."
+    mainClass.set("com.watchdog.desktop.HeadlessScanKt")
+    classpath = sourceSets["main"].runtimeClasspath
 }
