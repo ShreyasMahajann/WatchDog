@@ -34,6 +34,7 @@ import com.watchdog.desktop.scan.DesktopScanController
 enum class DesktopScreen(val label: String) {
     NetScan("NetScan"),
     History("History"),
+    DeviceWatch("Device Watch"),
     Settings("Settings"),
 }
 
@@ -63,6 +64,7 @@ fun App() {
                     scanStore = scanStore,
                     onOpened = { screen = DesktopScreen.NetScan },
                 )
+                DesktopScreen.DeviceWatch -> DeviceWatchScreen(netCtx)
                 DesktopScreen.Settings -> SettingsScreen(settingsStore, settings)
             }
         }

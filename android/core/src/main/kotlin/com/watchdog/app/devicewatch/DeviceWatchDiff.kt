@@ -1,14 +1,14 @@
 package com.watchdog.app.devicewatch
 
-import com.watchdog.app.devicewatch.data.WatchedDeviceEntity
+ 
 import com.watchdog.app.scan.discovery.DiscoveredHost
 
 /** The outcome of diffing a fresh discovery against the stored baseline. */
 data class WatchDiff(
     /** Devices never seen before in this scope (id=0, untrusted). */
-    val toInsert: List<WatchedDeviceEntity>,
+    val toInsert: List<WatchedDevice>,
     /** Devices already known, refreshed to present (carry their existing id + trust/label). */
-    val toUpdate: List<WatchedDeviceEntity>,
+    val toUpdate: List<WatchedDevice>,
     /** How many devices were seen this scan (insert + update). */
     val present: Int,
     /** How many of those are brand-new (== toInsert.size). */
@@ -25,7 +25,7 @@ data class WatchDiff(
 object DeviceWatchDiff {
 
     fun compute(
-        existing: List<WatchedDeviceEntity>,
+        existing: List<WatchedDevice>,
         discovered: List<DiscoveredHost>,
         scopeKey: String,
         networkLabel: String,
@@ -33,14 +33,14 @@ object DeviceWatchDiff {
     ): WatchDiff {
         val byIp = existing.associateBy { it.ip }
         val seen = LinkedHashSet<String>()
-        val toInsert = ArrayList<WatchedDeviceEntity>()
-        val toUpdate = ArrayList<WatchedDeviceEntity>()
+        val toInsert = ArrayList<WatchedDevice>()
+        val toUpdate = ArrayList<WatchedDevice>()
 
         for (host in discovered) {
             if (!seen.add(host.ip)) continue // discovery already dedups by IP; guard anyway
             val prior = byIp[host.ip]
             if (prior == null) {
-                toInsert += WatchedDeviceEntity(
+                toInsert += WatchedDevice(
                     scopeKey = scopeKey,
                     networkLabel = networkLabel,
                     ip = host.ip,

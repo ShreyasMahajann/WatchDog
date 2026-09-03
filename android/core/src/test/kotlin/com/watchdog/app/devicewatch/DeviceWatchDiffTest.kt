@@ -1,6 +1,6 @@
 package com.watchdog.app.devicewatch
 
-import com.watchdog.app.devicewatch.data.WatchedDeviceEntity
+
 import com.watchdog.app.scan.discovery.DiscoveredHost
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -23,7 +23,7 @@ class DeviceWatchDiffTest {
         hints: String = "",
         present: Boolean = true,
         first: Long = 100,
-    ) = WatchedDeviceEntity(
+    ) = WatchedDevice(
         id = id, scopeKey = scope, networkLabel = label, ip = ip, hostname = hostname,
         serviceHints = hints, label = null, trusted = trusted, firstSeen = first, lastSeen = first, present = present,
     )

@@ -1,6 +1,6 @@
 package com.watchdog.app.devicewatch
 
-import com.watchdog.app.devicewatch.data.DeviceWatchRepository
+ 
 import com.watchdog.app.net.NetworkContext
 import com.watchdog.app.scan.ScanConfig
 import com.watchdog.app.scan.ScanEngine
@@ -26,8 +26,10 @@ sealed interface WatchOutcome {
 class DeviceWatchScanner(
     private val networkContext: NetworkContext,
     private val engine: ScanEngine,
-    private val repo: DeviceWatchRepository,
+    private val repo: DeviceWatchStore,
     private val now: () -> Long = { System.currentTimeMillis() },
+    // Android watches only the joined Wi-Fi LAN; desktop also watches wired LANs.
+    private val requireWifi: Boolean = true,
 ) {
 
     suspend fun scan(
@@ -35,7 +37,7 @@ class DeviceWatchScanner(
     ): WatchOutcome {
         val net = networkContext.current()
         val cidr = net?.cidr
-        if (net == null || !net.isWifi || cidr == null) return WatchOutcome.NoNetwork
+        if (net == null || (requireWifi && !net.isWifi) || cidr == null) return WatchOutcome.NoNetwork
         val scopeKey = WatchScope.of(net) ?: return WatchOutcome.NoNetwork
         val label = WatchScope.label(net)
 
