@@ -151,7 +151,9 @@ jobs:
 
       - name: Build desktop installer
         working-directory: android
-        run: gradle :desktop:packageDistributionForCurrentOS -PversionName=${{ steps.ver.outputs.name }}
+        env:
+          WATCHDOG_VERSION: ${{ steps.ver.outputs.name }}
+        run: gradle :desktop:packageDistributionForCurrentOS
 
       - name: Stage installer (Linux)
         if: runner.os == 'Linux'

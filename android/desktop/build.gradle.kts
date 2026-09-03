@@ -34,7 +34,11 @@ compose.desktop {
             // Exe = Windows installer (.exe), Deb = Linux package (.deb).
             targetFormats(TargetFormat.Exe, TargetFormat.Deb)
             packageName = "watchDog"
-            packageVersion = (project.findProperty("versionName") as String?) ?: "0.1.0"
+            // Version via env var (WATCHDOG_VERSION) to avoid cross-shell CLI arg
+            // mangling on the Windows runner; falls back to a -P property, then 0.1.0.
+            packageVersion = System.getenv("WATCHDOG_VERSION")?.takeIf { it.isNotBlank() }
+                ?: (project.findProperty("versionName") as String?)?.takeIf { it.isNotBlank() }
+                ?: "0.1.0"
             description = "watchDog network security assessment (desktop)"
             vendor = "Shreyas Mahajan"
 
