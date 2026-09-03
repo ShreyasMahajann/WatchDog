@@ -118,14 +118,20 @@ select targets, port-scan + fingerprint, and correlate against OSV/KEV/EPSS.
 ```bash
 cd android
 gradle :desktop:run                 # launch the desktop GUI
-gradle :desktop:runHeadless         # CLI scan of the current subnet
-gradle :desktop:runHeadless --args="--correlate"   # CLI scan + CVE correlation
-gradle :desktop:packageDistributionForCurrentOS    # build an .msi (Windows) / .deb (Linux)
+gradle :desktop:runHeadless             # CLI scan of the current subnet
+gradle :desktop:runHeadless --args="--list"        # list scannable adapters
+gradle :desktop:runHeadless --args="--iface=wlan0 --correlate"   # pick adapter + correlate
+gradle :desktop:createDistributable                # portable app image (bundled runtime)
+gradle :desktop:packageDistributionForCurrentOS    # native installer: .msi (Windows) / .deb (Linux)
 ```
 
-Desktop v1 covers NetScan (discovery, enumeration, fingerprinting, correlation).
-Device Watch, the WPA tool, scan history, and persisted settings are staged
-follow-ups; live WPA capture stays Android-only (it needs monitor-mode hardware).
+The desktop app covers **NetScan** (discovery, enumeration, fingerprinting,
+correlation), **Device Watch**, the **WPA Handshake** tool (import, submit to
+WPA-sec, track cracked results), **scan history**, and **settings** — the same
+core engine as Android. When several adapters are active (Wi-Fi plus Ethernet, or
+a second USB Wi-Fi dongle) an adapter picker chooses which one to scan on. Live
+WPA capture stays Android-only (it needs monitor-mode hardware). Tagged releases
+attach a portable desktop zip for Windows and Linux alongside the APK.
 
 ## Releases
 

@@ -104,3 +104,64 @@ jobs:
           files: dist/watchDog-${{ steps.ver.outputs.name }}.apk
           generate_release_notes: true
           fail_on_unmatched_files: true
+
+  # Desktop apps for Windows and Linux, attached to the same release.
+  desktop:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Derive version
+        id: ver
+        shell: bash
+        run: |
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            NAME="${GITHUB_REF_NAME#v}"; TAG="$GITHUB_REF_NAME"
+          else
+            NAME="${{ github.event.inputs.version }}"; TAG="v${NAME}"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.10.2"
+
+      - name: Build desktop distributable
+        working-directory: android
+        run: gradle :desktop:createDistributable -PversionName=${{ steps.ver.outputs.name }}
+
+      - name: Package (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          mkdir -p dist
+          cd android/desktop/build/compose/binaries/main/app
+          zip -r "$GITHUB_WORKSPACE/dist/watchDog-desktop-linux-${{ steps.ver.outputs.name }}.zip" .
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Compress-Archive -Path android/desktop/build/compose/binaries/main/app/* `
+            -DestinationPath "dist/watchDog-desktop-windows-${{ steps.ver.outputs.name }}.zip"
+
+      - name: Attach to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.ver.outputs.tag }}
+          files: dist/*.zip
+          fail_on_unmatched_files: true
