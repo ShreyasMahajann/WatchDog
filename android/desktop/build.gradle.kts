@@ -34,6 +34,10 @@ compose.desktop {
             // Exe = Windows installer (.exe), Deb = Linux package (.deb).
             targetFormats(TargetFormat.Exe, TargetFormat.Deb)
             packageName = "watchDog"
+            // Bundle the full JDK module set so the trimmed runtime still has what
+            // sqlite-jdbc (java.sql) and OkHttp/TLS (java.naming, jdk.crypto.*) need
+            // at runtime — otherwise the packaged app crashes on first DB/network use.
+            includeAllModules = true
             // Version via env var (WATCHDOG_VERSION) to avoid cross-shell CLI arg
             // mangling on the Windows runner; falls back to a -P property, then 0.1.0.
             packageVersion = System.getenv("WATCHDOG_VERSION")?.takeIf { it.isNotBlank() }
