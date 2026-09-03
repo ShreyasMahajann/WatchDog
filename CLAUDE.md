@@ -41,11 +41,15 @@ Because of that, when implementing or fixing anything:
 ```
 watchDog/
   backend/     TypeScript correlation engine (the "brain"). Pure, no target I/O.
-  android/     Kotlin + Jetpack Compose app (the "hands"). Does all network I/O.
-  # Planned (cross-platform work): a shared :core JVM library extracted from the
-  # Android app, plus a :desktop Compose-for-Desktop app for Windows/Linux/macOS.
-  # See docs/superpowers/specs/ for the platform-independence design once written.
+  android/     Gradle workspace (the "hands"), three modules:
+    core/      Pure Kotlin/JVM: scan + correlate + WPA parse + device probes.
+               NO Android deps. Shared by both apps. Holds the JVM unit tests.
+    app/       Android app (Compose). Depends on :core.
+    desktop/   Compose-for-Desktop app (Windows/Linux). Depends on :core.
+  # Design: docs/superpowers/specs/2026-09-03-cross-platform-desktop-design.md
 ```
+
+Targets are **Android, Windows, Linux** (macOS is not built/tested).
 
 ## Keep parallel implementations in sync (IMPORTANT)
 
@@ -94,9 +98,11 @@ Android (AGP 8.7 / Gradle 8.10.2 / Kotlin 2.0 / JDK 17, minSdk 26, compileSdk 35
 
 ```bash
 # Open android/ in Android Studio (generates the Gradle wrapper on first sync),
-# or from CLI with a local Gradle:
-gradle testDebugUnitTest   # JVM unit tests (correlation port, parsers, etc.)
-gradle assembleDebug       # build the APK
+# or from CLI with a local Gradle (run inside android/):
+gradle :core:test :app:testDebugUnitTest   # shared-core + Android JVM unit tests
+gradle assembleDebug                        # build the APK
+gradle :desktop:compileKotlin :desktop:jar  # build the desktop app
+gradle :desktop:run                         # launch the desktop GUI
 ```
 
 CI (`.github/workflows/ci.yml`) runs backend tests, Android JVM unit tests, and

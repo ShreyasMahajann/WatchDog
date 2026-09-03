@@ -32,9 +32,17 @@ See the full plan: `~/.claude/plans/i-want-you-to-shimmying-bird.md`.
 watchDog/
   backend/     TypeScript vulnerability-correlation engine (the brain).
                Pure, dependency-free core; deploys into the Website's API routes.
-  android/     Kotlin + Jetpack Compose app (the hands).
-  .github/     CI (backend tests + APK build) and release-on-tag pipeline.
+  android/     Gradle workspace (the hands) with three modules:
+    core/      Pure Kotlin/JVM library: scanning, correlation, WPA parsing,
+               device probes — no Android deps. Shared by both apps.
+    app/       Android app (Kotlin + Jetpack Compose). Depends on :core.
+    desktop/   Compose-for-Desktop app for Windows/Linux. Depends on :core.
+  .github/     CI (backend tests, Android APK, desktop build) + release pipeline.
 ```
+
+The scanning/correlation logic lives once in `:core` and runs unchanged on
+Android, Windows, and Linux. Only the platform edges differ (network context,
+mDNS, persistence, UI); see `docs/superpowers/specs/` for the design.
 
 ## backend/
 
@@ -99,6 +107,25 @@ backend's `version.ts` / `match.ts` / `correlate.ts`, validated in
 bare upstream products (no distro tag) get lower-confidence OSV matches until
 own-server mode points at an NVD-CPE index; SYN/ARP/MAC/OS-detection remain a
 future root tier.
+
+## desktop/ (Windows & Linux)
+
+A Compose-for-Desktop GUI that reuses the `:core` engine (not Kotlin
+Multiplatform — a plain Kotlin/JVM module with the JetBrains Compose plugin).
+It runs the NetScan flow end to end: detect the joined LAN, discover live hosts,
+select targets, port-scan + fingerprint, and correlate against OSV/KEV/EPSS.
+
+```bash
+cd android
+gradle :desktop:run                 # launch the desktop GUI
+gradle :desktop:runHeadless         # CLI scan of the current subnet
+gradle :desktop:runHeadless --args="--correlate"   # CLI scan + CVE correlation
+gradle :desktop:packageDistributionForCurrentOS    # build an .msi (Windows) / .deb (Linux)
+```
+
+Desktop v1 covers NetScan (discovery, enumeration, fingerprinting, correlation).
+Device Watch, the WPA tool, scan history, and persisted settings are staged
+follow-ups; live WPA capture stays Android-only (it needs monitor-mode hardware).
 
 ## Releases
 
