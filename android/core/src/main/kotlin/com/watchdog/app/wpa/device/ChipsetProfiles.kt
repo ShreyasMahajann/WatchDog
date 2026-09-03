@@ -46,11 +46,24 @@ object ChipsetProfiles {
             "running kernel — on stock Android that requires a custom (e.g. NetHunter) kernel + root.",
     )
 
+    val MT7612U = ChipsetProfile(
+        name = "MediaTek MT7612U / MT7601U",
+        driver = "mt76",
+        monitorMode = true,
+        packetInjection = true,
+        handshakeCapture = true,
+        firmware = null,
+        notes = "mt76 is modern and in-tree upstream but absent from stock Android kernels; on-device capture needs root + a kernel carrying the driver.",
+    )
+
     // AR9271 enumerates under Atheros VID 0x0cf3. 0x9271 is the common id (e.g. TP-Link
     // TL-WN722N v1, Alfa AWUS036NHA); 0x7015 appears on some AR7010+AR9271 combos.
     private val byId: Map<Pair<Int, Int>, ChipsetProfile> = mapOf(
         (0x0cf3 to 0x9271) to AR9271,
         (0x0cf3 to 0x7015) to AR9271,
+        (0x0e8d to 0x7612) to MT7612U,
+        (0x0e8d to 0x7601) to MT7612U,
+        (0x0e8d to 0x7610) to MT7612U,
     )
 
     /** The chipset profile for a given USB vendor/product id, or null if unrecognized. */

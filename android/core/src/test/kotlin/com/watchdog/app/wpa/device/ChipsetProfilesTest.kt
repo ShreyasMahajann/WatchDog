@@ -23,6 +23,13 @@ class ChipsetProfilesTest {
     }
 
     @Test
+    fun `MT7612U ids resolve to the MT7612U profile`() {
+        assertSame(ChipsetProfiles.MT7612U, ChipsetProfiles.lookup(0x0e8d, 0x7612))
+        assertSame(ChipsetProfiles.MT7612U, ChipsetProfiles.lookup(0x0e8d, 0x7601))
+        assertSame(ChipsetProfiles.MT7612U, ChipsetProfiles.lookup(0x0e8d, 0x7610))
+    }
+
+    @Test
     fun `AR9271 combo id also resolves to the AR9271 profile`() {
         assertSame(ChipsetProfiles.AR9271, ChipsetProfiles.lookup(0x0cf3, 0x7015))
     }
@@ -31,6 +38,15 @@ class ChipsetProfilesTest {
     fun `AR9271 profile advertises monitor and injection`() {
         val p = ChipsetProfiles.AR9271
         assertEquals("ath9k_htc", p.driver)
+        assertTrue(p.monitorMode)
+        assertTrue(p.packetInjection)
+        assertTrue(p.handshakeCapture)
+    }
+
+    @Test
+    fun `MT7612U profile advertises monitor and injection`() {
+        val p = ChipsetProfiles.MT7612U
+        assertEquals("mt76", p.driver)
         assertTrue(p.monitorMode)
         assertTrue(p.packetInjection)
         assertTrue(p.handshakeCapture)
