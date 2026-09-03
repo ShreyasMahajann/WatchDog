@@ -4,16 +4,7 @@ import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
-/** Lifecycle of a capture's WPA-sec submission. wpa-sec exposes no per-file scan id or queue
- *  position, so there is no honest "queued"/"scanning" state — a submitted capture is either still
- *  awaiting a result or has been cracked. */
-enum class SubmissionStatus {
-    NOT_SUBMITTED,
-    UPLOADING,
-    SUBMITTED,   // uploaded; awaiting a cracked result (polled by BSSID)
-    CRACKED,     // password recovered
-    FAILED,      // upload failed
-}
+// SubmissionStatus now lives in :core (com.watchdog.app.wpa.data.SubmissionStatus), shared with desktop.
 
 /** One captured/imported handshake plus its submission state. Denormalized on purpose — the history
  *  screen shows exactly these fields, and MD5 uniqueness is what prevents duplicate imports/uploads. */

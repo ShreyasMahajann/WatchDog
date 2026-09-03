@@ -34,7 +34,7 @@ internal fun <T> openWithRecovery(opener: () -> T, wiper: () -> Unit): T? =
  * app startup, that once crashed the whole app — so opening now recovers by wiping the
  * corrupt store and starting fresh, and every access degrades to null rather than throwing.
  */
-class WpaSecCredentials(context: Context) {
+class WpaSecCredentials(context: Context) : com.watchdog.app.wpa.creds.SecretStore {
 
     private val appContext = context.applicationContext
 
@@ -64,7 +64,7 @@ class WpaSecCredentials(context: Context) {
         appContext.deleteSharedPreferences(PREFS_NAME)
     }
 
-    fun getKey(): String? = runCatching { prefs?.getString(KEY, null) }.getOrNull()?.takeIf { it.isNotBlank() }
+    override fun getKey(): String? = runCatching { prefs?.getString(KEY, null) }.getOrNull()?.takeIf { it.isNotBlank() }
 
     fun setKey(key: String) {
         runCatching { prefs?.edit()?.putString(KEY, key.trim())?.apply() }

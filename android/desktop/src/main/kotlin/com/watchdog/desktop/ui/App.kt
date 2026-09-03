@@ -35,6 +35,7 @@ enum class DesktopScreen(val label: String) {
     NetScan("NetScan"),
     History("History"),
     DeviceWatch("Device Watch"),
+    Wpa("WPA Handshake"),
     Settings("Settings"),
 }
 
@@ -65,6 +66,7 @@ fun App() {
                     onOpened = { screen = DesktopScreen.NetScan },
                 )
                 DesktopScreen.DeviceWatch -> DeviceWatchScreen(netCtx)
+                DesktopScreen.Wpa -> WpaScreen()
                 DesktopScreen.Settings -> SettingsScreen(settingsStore, settings)
             }
         }
