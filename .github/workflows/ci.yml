@@ -47,6 +47,12 @@ jobs:
       - name: Assemble debug APK
         working-directory: android
         run: gradle assembleDebug
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: watchDog-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
 
   desktop:
     strategy:
@@ -65,6 +71,31 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.10.2"
-      - name: Build desktop app
+
+      # jpackage needs fakeroot/binutils for a .deb, and the WiX Toolset for a .exe.
+      - name: Install Linux packaging tools
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y fakeroot binutils
+      - name: Install WiX Toolset
+        if: runner.os == 'Windows'
+        run: choco install wixtoolset --no-progress -y
+
+      - name: Build desktop installer (.deb / .exe)
         working-directory: android
-        run: gradle :desktop:compileKotlin :desktop:jar
+        run: gradle :desktop:packageDistributionForCurrentOS
+
+      - name: Upload Linux .deb
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: watchDog-linux-deb
+          path: android/desktop/build/compose/binaries/main/deb/*.deb
+          if-no-files-found: error
+
+      - name: Upload Windows .exe
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: watchDog-windows-exe
+          path: android/desktop/build/compose/binaries/main/exe/*.exe
+          if-no-files-found: error
