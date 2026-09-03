@@ -139,29 +139,42 @@ jobs:
         with:
           gradle-version: "8.10.2"
 
-      - name: Build desktop distributable
-        working-directory: android
-        run: gradle :desktop:createDistributable -PversionName=${{ steps.ver.outputs.name }}
+      # jpackage needs fakeroot/binutils to build a .deb on Linux.
+      - name: Install Linux packaging tools
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y fakeroot binutils
 
-      - name: Package (Linux)
+      # jpackage needs the WiX Toolset (v3) to build a Windows installer.
+      - name: Install WiX Toolset
+        if: runner.os == 'Windows'
+        run: choco install wixtoolset --no-progress -y
+
+      - name: Build desktop installer
+        working-directory: android
+        run: gradle :desktop:packageDistributionForCurrentOS -PversionName=${{ steps.ver.outputs.name }}
+
+      - name: Stage installer (Linux)
         if: runner.os == 'Linux'
         shell: bash
         run: |
           mkdir -p dist
-          cd android/desktop/build/compose/binaries/main/app
-          zip -r "$GITHUB_WORKSPACE/dist/watchDog-desktop-linux-${{ steps.ver.outputs.name }}.zip" .
+          cp android/desktop/build/compose/binaries/main/deb/*.deb \
+            "dist/watchDog-${{ steps.ver.outputs.name }}-linux.deb"
 
-      - name: Package (Windows)
+      - name: Stage installer (Windows)
         if: runner.os == 'Windows'
-        shell: pwsh
+        shell: bash
         run: |
-          New-Item -ItemType Directory -Force dist | Out-Null
-          Compress-Archive -Path android/desktop/build/compose/binaries/main/app/* `
-            -DestinationPath "dist/watchDog-desktop-windows-${{ steps.ver.outputs.name }}.zip"
+          mkdir -p dist
+          cp android/desktop/build/compose/binaries/main/exe/*.exe \
+            "dist/watchDog-${{ steps.ver.outputs.name }}-windows.exe"
 
+      # Each runner produces exactly one installer (.deb on Linux, .exe on Windows);
+      # the Stage step above fails the job if packaging produced nothing, so a
+      # non-matching glob here is expected and must not fail the upload.
       - name: Attach to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.ver.outputs.tag }}
-          files: dist/*.zip
-          fail_on_unmatched_files: true
+          files: dist/*
+          fail_on_unmatched_files: false

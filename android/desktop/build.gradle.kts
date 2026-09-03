@@ -31,10 +31,12 @@ compose.desktop {
 
         nativeDistributions {
             // Windows + Linux are the desktop targets (macOS not built/tested).
-            targetFormats(TargetFormat.Msi, TargetFormat.Deb)
+            // Exe = Windows installer (.exe), Deb = Linux package (.deb).
+            targetFormats(TargetFormat.Exe, TargetFormat.Deb)
             packageName = "watchDog"
             packageVersion = (project.findProperty("versionName") as String?) ?: "0.1.0"
             description = "watchDog network security assessment (desktop)"
+            vendor = "Shreyas Mahajan"
         }
     }
 }
