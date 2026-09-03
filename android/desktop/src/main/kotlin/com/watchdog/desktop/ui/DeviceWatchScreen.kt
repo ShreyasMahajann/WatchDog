@@ -36,7 +36,7 @@ import com.watchdog.app.devicewatch.DeviceWatchScanner
 import com.watchdog.app.devicewatch.WatchOutcome
 import com.watchdog.app.devicewatch.WatchScope
 import com.watchdog.app.devicewatch.WatchedDevice
-import com.watchdog.app.net.NetworkContext
+import com.watchdog.desktop.net.DesktopNetworkContext
 import com.watchdog.app.scan.ScanConfig
 import com.watchdog.app.scan.ScanEngine
 import com.watchdog.app.scan.ScanScope
@@ -49,7 +49,7 @@ import kotlinx.coroutines.withContext
 
 /** Desktop Device Watch: inventory the current LAN and flag new devices. */
 @Composable
-fun DeviceWatchScreen(netCtx: NetworkContext) {
+fun DeviceWatchScreen(netCtx: DesktopNetworkContext) {
     val scope = rememberCoroutineScope()
     val store = remember { DesktopDeviceWatchStore() }
     val engine = remember { ScanEngine(discoverers = listOf(TcpProbeDiscoverer(), ReachabilityDiscoverer())) }
@@ -77,6 +77,8 @@ fun DeviceWatchScreen(netCtx: NetworkContext) {
                 ?: "No active LAN",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        Spacer(Modifier.height(12.dp))
+        InterfacePicker(netCtx, onChanged = { network = netCtx.current(); reload() })
         Spacer(Modifier.height(12.dp))
 
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {

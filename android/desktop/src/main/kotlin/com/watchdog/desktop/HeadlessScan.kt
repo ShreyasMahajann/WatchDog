@@ -25,6 +25,15 @@ import kotlinx.coroutines.runBlocking
 fun main(args: Array<String>) = runBlocking {
     val correlate = args.contains("--correlate")
     val netCtx = DesktopNetworkContext()
+
+    if (args.contains("--list")) {
+        println("Active adapters:")
+        netCtx.interfaces().forEach { println("  ${it.id}\t${it.label}") }
+        return@runBlocking
+    }
+    // --iface=<name> forces a specific adapter; otherwise Wi-Fi-preferred auto-pick.
+    args.firstOrNull { it.startsWith("--iface=") }?.let { netCtx.select(it.substringAfter('=')) }
+
     val net = netCtx.current()
     if (net?.cidr == null) {
         System.err.println("No active IPv4 LAN found. Connect to a network and retry.")

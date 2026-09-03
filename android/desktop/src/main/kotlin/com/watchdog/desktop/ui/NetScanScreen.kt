@@ -38,19 +38,19 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.watchdog.app.net.Cidr
-import com.watchdog.app.net.NetworkContext
 import com.watchdog.app.net.NetworkInfo
 import com.watchdog.app.scan.ScanConfig
 import com.watchdog.app.scan.ScanDepth
 import com.watchdog.app.scan.ScanScope
 import com.watchdog.app.settings.Settings
+import com.watchdog.desktop.net.DesktopNetworkContext
 import com.watchdog.desktop.scan.DesktopScanController
 
 /** The desktop NetScan flow: detect LAN, discover, pick, scan, correlate. */
 @Composable
 fun NetScanScreen(
     controller: DesktopScanController,
-    netCtx: NetworkContext,
+    netCtx: DesktopNetworkContext,
     settings: Settings,
 ) {
     var network by remember { mutableStateOf<NetworkInfo?>(netCtx.current()) }
@@ -65,6 +65,8 @@ fun NetScanScreen(
     val config = ScanConfig(scope = ScanScope.WHOLE_NETWORK, depth = depth, identityProbes = false)
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp)) {
+        InterfacePicker(netCtx, onChanged = { network = netCtx.current() })
+        Spacer(Modifier.height(12.dp))
         NetworkCard(network, onRefresh = { network = netCtx.current() })
         Spacer(Modifier.height(16.dp))
 
