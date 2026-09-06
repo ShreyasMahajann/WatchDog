@@ -1,6 +1,7 @@
 package com.watchdog.app.wpa.device
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
@@ -25,8 +26,12 @@ class ChipsetProfilesTest {
     @Test
     fun `MT7612U ids resolve to the MT7612U profile`() {
         assertSame(ChipsetProfiles.MT7612U, ChipsetProfiles.lookup(0x0e8d, 0x7612))
-        assertSame(ChipsetProfiles.MT7612U, ChipsetProfiles.lookup(0x0e8d, 0x7601))
         assertSame(ChipsetProfiles.MT7612U, ChipsetProfiles.lookup(0x0e8d, 0x7610))
+    }
+
+    @Test
+    fun `MT7601U id resolves to the MT7601U profile`() {
+        assertSame(ChipsetProfiles.MT7601U, ChipsetProfiles.lookup(0x0e8d, 0x7601))
     }
 
     @Test
@@ -50,6 +55,15 @@ class ChipsetProfilesTest {
         assertTrue(p.monitorMode)
         assertTrue(p.packetInjection)
         assertTrue(p.handshakeCapture)
+    }
+
+    @Test
+    fun `MT7601U profile does not claim reliable monitor and injection`() {
+        val p = ChipsetProfiles.MT7601U
+        assertEquals("mt7601u", p.driver)
+        assertFalse(p.monitorMode)
+        assertFalse(p.packetInjection)
+        assertFalse(p.handshakeCapture)
     }
 
     @Test
