@@ -46,7 +46,7 @@ watchDog/
                NO Android deps. Shared by both apps. Holds the JVM unit tests.
     app/       Android app (Compose). Depends on :core.
     desktop/   Compose-for-Desktop app (Windows/Linux). Depends on :core.
-  # Design: docs/superpowers/specs/2026-09-03-cross-platform-desktop-design.md
+  # Design: docs/architecture.md
 ```
 
 Targets are **Android, Windows, Linux** (macOS is not built/tested).

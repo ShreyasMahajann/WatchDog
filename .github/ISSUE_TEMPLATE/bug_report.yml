@@ -1,0 +1,77 @@
+name: Bug report
+description: Something does not work the way the documentation says it should.
+labels: ["bug", "needs triage"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How to reproduce it
+      description: The smallest set of steps that shows the problem.
+      placeholder: |
+        1. Open NetScan and pick the joined network
+        2. Select two devices, Top 100 ports
+        3. ...
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - Scan core (discovery, enumeration, fingerprinting)
+        - Correlation engine (backend or Kotlin)
+        - Android app
+        - Desktop app (Windows or Linux)
+        - WPA Handshake tool
+        - Device Watch
+        - Build, CI or release
+        - Documentation
+        - Not sure
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - Android
+        - Windows
+        - Linux
+        - Backend
+    validations:
+      required: true
+  - type: dropdown
+    id: out-of-scope-traffic
+    attributes:
+      label: Did watchDog send traffic to a host outside the network you selected?
+      description: Probing hosts you did not choose, or the backend contacting a target, is the most serious kind of bug here.
+      options:
+        - "No"
+        - "Yes"
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Relevant logcat output, desktop console output or the diagnostics report.
+      render: shell
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: App version from Settings, or the commit you built.
+      placeholder: e.g. v0.8.0
+  - type: input
+    id: device
+    attributes:
+      label: Device and OS
+      placeholder: e.g. Pixel 7, Android 15 / Windows 11 / Ubuntu 24.04

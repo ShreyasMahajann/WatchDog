@@ -1,0 +1,33 @@
+name: Good first issue
+description: For maintainers. A small, self contained task for a first time contributor.
+labels: ["good first issue"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What needs doing and why, written for someone new to the project.
+    validations:
+      required: true
+  - type: textarea
+    id: files
+    attributes:
+      label: Files involved
+      description: Paths a newcomer should start from.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: A checklist that makes it clear when the work is done.
+      placeholder: |
+        - [ ] ...
+        - [ ] Documentation updated if behaviour changed
+    validations:
+      required: true
+  - type: textarea
+    id: help
+    attributes:
+      label: Getting help
+      value: Comment here to claim this issue, and ask on [Discord](https://discord.gg/gZTJfUujX) if you get stuck.

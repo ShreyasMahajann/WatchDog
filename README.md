@@ -24,7 +24,7 @@ pure brain (correlation, prioritization, the vuln DB, and serving signed
 check-definitions the phone runs locally). This eliminates backend SSRF by
 construction.
 
-See the full plan: `~/.claude/plans/i-want-you-to-shimmying-bird.md`.
+See [docs/architecture.md](docs/architecture.md) for the full design.
 
 ## Repository layout
 
@@ -42,7 +42,7 @@ watchDog/
 
 The scanning/correlation logic lives once in `:core` and runs unchanged on
 Android, Windows, and Linux. Only the platform edges differ (network context,
-mDNS, persistence, UI); see `docs/superpowers/specs/` for the design.
+mDNS, persistence, UI); see [docs/architecture.md](docs/architecture.md).
 
 ## backend/
 
@@ -162,4 +162,6 @@ If watchDog is useful to you, you can support its development:
 
 ## License
 
-Released under the [MIT License](LICENSE) — © 2026 Shreyas Mahajan.
+Released under the [Apache License 2.0](LICENSE). See [NOTICE](NOTICE).
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) to get involved, and [SECURITY.md](SECURITY.md) to report a vulnerability.

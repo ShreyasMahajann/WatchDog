@@ -1,0 +1,8 @@
+watchDog
+Copyright 2026 The watchDog Authors
+
+This product is licensed under the Apache License, Version 2.0.
+See the LICENSE file for the full text.
+
+Desktop release builds bundle a Java runtime, which is distributed under its
+own license (GPL-2.0 with the Classpath Exception).

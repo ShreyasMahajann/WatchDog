@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Ask a question on Discord
+    url: https://discord.gg/gZTJfUujX
+    about: For questions and ideas that are not yet a bug or a feature request.
+  - name: Report a security problem
+    url: https://github.com/Ergane-Foundation/watchDog/security/advisories/new
+    about: Please report vulnerabilities privately, never in a public issue.
